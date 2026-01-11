@@ -11,17 +11,20 @@ interface Props {
 
 const ThePress: React.FC<Props> = ({ project, onBack, lang, isDark }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [showOrderModal, setShowOrderModal] = useState(false);
+  const [selectedPlan, setSelectedPlan] = useState('');
   
   const pages = Array.isArray(project.pages) ? project.pages : [];
+  const extractionCode = "A888-B2"; // 模拟的提取码
 
-  const productLinks = {
-    digital: "https://www.xiaohongshu.com/explore",
-    basic: "https://www.xiaohongshu.com/explore",
-    gift: "https://www.xiaohongshu.com/explore"
+  const handleOrderClick = (planName: string) => {
+    setSelectedPlan(planName);
+    setShowOrderModal(true);
   };
 
-  const handleOrder = (type: keyof typeof productLinks) => {
-    window.open(productLinks[type], '_blank');
+  const handleCopyCode = () => {
+    navigator.clipboard.writeText(extractionCode);
+    alert(lang === 'zh' ? '提取码已复制到剪贴板！' : 'Code copied to clipboard!');
   };
 
   const t = {
@@ -35,7 +38,14 @@ const ThePress: React.FC<Props> = ({ project, onBack, lang, isDark }) => {
       startCreating: '开始创作',
       page: '页',
       back: '返回修改',
-      previewMode: '标准预览模式 (非高清)'
+      previewMode: '标准预览模式 (非高清)',
+      archived: '已归档',
+      modalTitle: '作品已归档！',
+      modalCodeLabel: '专属 【作品提取码】：',
+      modalInstruction: '然后前往【DreamLoom 小红书店】下单，备注此码即可。',
+      copySuccess: '点击复制',
+      goShop: '前往小红书店',
+      close: '稍后再说'
     },
     en: {
       digital: 'Standard Digital', digitalPrice: '39.9', digitalRights: 'Standard Quality, Cloud Storage',
@@ -47,7 +57,14 @@ const ThePress: React.FC<Props> = ({ project, onBack, lang, isDark }) => {
       startCreating: 'Start',
       page: 'Page',
       back: 'Edit',
-      previewMode: 'Standard Preview (Low-res)'
+      previewMode: 'Standard Preview (Low-res)',
+      archived: 'Archived',
+      modalTitle: 'Work Archived!',
+      modalCodeLabel: 'Exclusive [Extraction Code]:',
+      modalInstruction: 'Go to [DreamLoom Red Store] and leave this code in the notes.',
+      copySuccess: 'Click to Copy',
+      goShop: 'Visit Store',
+      close: 'Later'
     }
   }[lang];
 
@@ -71,7 +88,7 @@ const ThePress: React.FC<Props> = ({ project, onBack, lang, isDark }) => {
   const currentPage = pages[currentIndex];
 
   return (
-    <div className="max-w-5xl mx-auto space-y-8 md:space-y-12 py-4 animate-in pb-24 w-full">
+    <div className="max-w-5xl mx-auto space-y-8 md:space-y-12 py-4 animate-in pb-24 w-full relative">
       <div className="text-center space-y-3">
         <h2 className="text-2xl md:text-4xl font-header font-bold tracking-tight leading-tight px-4" style={{ color: 'var(--text-main)' }}>
           {project.title || "奇妙故事集"}
@@ -139,9 +156,9 @@ const ThePress: React.FC<Props> = ({ project, onBack, lang, isDark }) => {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8 px-4 w-full">
-        <PriceCard title={t.digital} price={t.digitalPrice} rights={t.digitalRights} btn={t.buy} primary={false} onClick={() => handleOrder('digital')} />
-        <PriceCard title={t.basic} price={t.basicPrice} rights={t.basicRights} btn={t.buy} primary={true} onClick={() => handleOrder('basic')} />
-        <PriceCard title={t.gift} price={t.giftPrice} rights={t.giftRights} btn={t.buy} primary={false} onClick={() => handleOrder('gift')} />
+        <PriceCard title={t.digital} price={t.digitalPrice} rights={t.digitalRights} btn={t.buy} primary={false} onClick={() => handleOrderClick(t.digital)} />
+        <PriceCard title={t.basic} price={t.basicPrice} rights={t.basicRights} btn={t.buy} primary={true} onClick={() => handleOrderClick(t.basic)} />
+        <PriceCard title={t.gift} price={t.giftPrice} rights={t.giftRights} btn={t.buy} primary={false} onClick={() => handleOrderClick(t.gift)} />
       </div>
 
       <div className="text-center pt-6 md:pt-10">
@@ -149,6 +166,35 @@ const ThePress: React.FC<Props> = ({ project, onBack, lang, isDark }) => {
           <i className="fas fa-long-arrow-alt-left"></i> {t.back}
         </button>
       </div>
+
+      {/* Order Dialog */}
+      {showOrderModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 animate-in fade-in">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-md" onClick={() => setShowOrderModal(false)}></div>
+          <div className="relative bg-[var(--card-bg)] p-8 md:p-12 rounded-[3.5rem] shadow-2xl text-center space-y-8 max-w-lg w-full zoom-in-95 border border-[var(--border-color)]">
+             <div className="w-24 h-24 bg-green-500 rounded-[2.5rem] flex items-center justify-center text-white text-5xl mx-auto shadow-xl animate-bounce">
+                <i className="fas fa-check-circle"></i>
+             </div>
+             <div className="space-y-4">
+                <h3 className="text-3xl font-bold font-header" style={{ color: 'var(--text-main)' }}>您的作品《{project.title || "奇妙故事集"}》已归档！</h3>
+                <div className="p-6 bg-[#EA6F23]/5 rounded-3xl border border-[#EA6F23]/20 space-y-3 group cursor-pointer active:scale-95 transition-all" onClick={handleCopyCode}>
+                   <p className="text-xs font-black opacity-40 uppercase tracking-widest">{t.modalCodeLabel}</p>
+                   <div className="text-4xl font-black text-[#EA6F23] tracking-tighter">{extractionCode}</div>
+                   <p className="text-[10px] font-bold text-[#EA6F23] animate-pulse">( {t.copySuccess} )</p>
+                </div>
+                <p className="opacity-60 font-medium leading-relaxed px-4">{t.modalInstruction}</p>
+             </div>
+             <div className="flex flex-col gap-3">
+               <button onClick={() => window.open('https://www.xiaohongshu.com', '_blank')} className="btn-candy w-full py-5 text-white rounded-[2rem] font-bold shadow-2xl text-lg">
+                 {t.goShop} <i className="fas fa-external-link-alt ml-2"></i>
+               </button>
+               <button onClick={() => setShowOrderModal(false)} className="w-full py-3 text-[var(--text-sub)] font-bold text-sm hover:text-[var(--text-main)]">
+                 {t.close}
+               </button>
+             </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
