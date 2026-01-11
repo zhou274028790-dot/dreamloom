@@ -15,6 +15,15 @@ import BrandStory from './components/BrandStory';
 import MyProfile from './components/MyProfile';
 import Login from './components/Login';
 
+// 生成随机提取码 A123-B4 格式
+const generateExtractionCode = () => {
+  const letters = 'ABCDEFGHJKLMNPQRSTUVWXYZ'; // 排除易混淆的 I, O
+  const digits = '123456789';
+  const rL = (len: number) => Array.from({length: len}, () => letters[Math.floor(Math.random() * letters.length)]).join('');
+  const rD = (len: number) => Array.from({length: len}, () => digits[Math.floor(Math.random() * digits.length)]).join('');
+  return `${rL(1)}${rD(3)}-${rL(1)}${rD(1)}`;
+};
+
 const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<AppView>('login');
   const [lang, setLang] = useState<Language>('zh');
@@ -39,6 +48,7 @@ const App: React.FC = () => {
     pages: [],
     characterDescription: '',
     visualStyle: VisualStyle.WATERCOLOR,
+    extractionCode: generateExtractionCode(),
     currentStep: 'idea',
     createdAt: Date.now()
   });
@@ -102,9 +112,6 @@ const App: React.FC = () => {
     return brightness < 128;
   }, [bgColor]);
 
-  /**
-   * 视觉算法优化：深色模式下，板块颜色自动比背景亮 10%
-   */
   useEffect(() => {
     const hex = bgColor.replace('#', '');
     const adjust = isDarkBg ? 30 : 0;
@@ -251,7 +258,7 @@ const App: React.FC = () => {
              await deleteProjectFromCloud(id);
              setHistory(h => h.filter(p => p.id !== id));
            }} onNewProject={() => {
-             setProject({ id: Math.random().toString(36).substr(2, 9), title: '', originalIdea: '', template: StoryTemplate.HERO_JOURNEY, pages: [], characterDescription: '', visualStyle: VisualStyle.WATERCOLOR, currentStep: 'idea', createdAt: Date.now() });
+             setProject({ id: Math.random().toString(36).substr(2, 9), title: '', originalIdea: '', template: StoryTemplate.HERO_JOURNEY, pages: [], characterDescription: '', visualStyle: VisualStyle.WATERCOLOR, extractionCode: generateExtractionCode(), currentStep: 'idea', createdAt: Date.now() });
              setCurrentView('studio');
            }} /> :
            <>

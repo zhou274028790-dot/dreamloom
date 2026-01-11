@@ -40,8 +40,9 @@ export interface BookProject {
   characterReferenceImage?: string; 
   characterSeedImage?: string; 
   visualStyle: VisualStyle;
-  styleReferenceImage?: string; // 用户提供的画风参考图
-  styleDescription?: string;    // 分析出的画风描述
+  styleReferenceImage?: string; 
+  styleDescription?: string;    
+  extractionCode?: string; // 新增：提取码
   currentStep: 'idea' | 'character' | 'director' | 'press';
   createdAt?: number;
   author?: string;

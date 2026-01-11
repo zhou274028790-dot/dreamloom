@@ -15,7 +15,8 @@ const ThePress: React.FC<Props> = ({ project, onBack, lang, isDark }) => {
   const [selectedPlan, setSelectedPlan] = useState('');
   
   const pages = Array.isArray(project.pages) ? project.pages : [];
-  const extractionCode = "A888-B2"; // 模拟的提取码
+  // 如果项目中没有提取码（旧项目），显示默认占位
+  const extractionCode = project.extractionCode || "DREAM-01"; 
 
   const handleOrderClick = (planName: string) => {
     setSelectedPlan(planName);
