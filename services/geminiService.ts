@@ -5,64 +5,60 @@ import { StoryTemplate, StoryPage, VisualStyle } from "../types";
 const generateId = () => Math.random().toString(36).substr(2, 9);
 
 /**
- * 强化版图片预处理：
- * 1. 优先使用 fetch 获取 Blob 解决跨域(CORS)问题。
- * 2. 严格限制输出尺寸和质量，平衡画质与 API 载荷。
+ * 强化版图片预处理：增加静默重试和更好的跨域处理
  */
-const prepareImageForAi = async (imgData: string): Promise<string> => {
+const prepareImageForAi = async (imgData: string, retryCount = 0): Promise<string> => {
   if (!imgData) throw new Error("无效的图片数据");
 
-  // 如果是远程 URL，先转换成 Blob 规避 img.src 的跨域限制
-  let blob: Blob;
-  if (imgData.startsWith('http')) {
-    try {
-      const resp = await fetch(imgData, { mode: 'cors' });
-      if (!resp.ok) throw new Error("无法从存储服务器读取图片");
+  try {
+    let blob: Blob;
+    if (imgData.startsWith('http')) {
+      const resp = await fetch(imgData, { mode: 'cors', cache: 'no-cache' });
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
       blob = await resp.blob();
-    } catch (e) {
-      console.error("Fetch image error:", e);
-      throw new Error("网络受限，图片加载失败，请检查网络或重试。");
+    } else {
+      const resp = await fetch(imgData);
+      blob = await resp.blob();
     }
-  } else {
-    // 已经是 base64
-    const resp = await fetch(imgData);
-    blob = await resp.blob();
+
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      const url = URL.createObjectURL(blob);
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const MAX_SIZE = 768; 
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > MAX_SIZE) { height *= MAX_SIZE / width; width = MAX_SIZE; }
+        } else {
+          if (height > MAX_SIZE) { width *= MAX_SIZE / height; height = MAX_SIZE; }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return reject(new Error("Canvas context failed"));
+        
+        ctx.fillStyle = "#FFFFFF";
+        ctx.fillRect(0, 0, width, height);
+        ctx.drawImage(img, 0, 0, width, height);
+        
+        const compressedData = canvas.toDataURL('image/jpeg', 0.6);
+        URL.revokeObjectURL(url);
+        resolve(compressedData.split(',')[1]);
+      };
+      img.onerror = () => {
+        URL.revokeObjectURL(url);
+        reject(new Error("Image decoding failed"));
+      };
+      img.src = url;
+    });
+  } catch (e) {
+    if (retryCount < 2) return prepareImageForAi(imgData, retryCount + 1);
+    throw new Error("图片加载失败，请确保链接有效并允许跨域。");
   }
-
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    const url = URL.createObjectURL(blob);
-    img.onload = () => {
-      const canvas = document.createElement('canvas');
-      const MAX_SIZE = 768; 
-      let width = img.width;
-      let height = img.height;
-
-      if (width > height) {
-        if (width > MAX_SIZE) { height *= MAX_SIZE / width; width = MAX_SIZE; }
-      } else {
-        if (height > MAX_SIZE) { width *= MAX_SIZE / height; height = MAX_SIZE; }
-      }
-
-      canvas.width = width;
-      canvas.height = height;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) return reject(new Error("浏览器不支持 Canvas"));
-      
-      ctx.fillStyle = "#FFFFFF";
-      ctx.fillRect(0, 0, width, height);
-      ctx.drawImage(img, 0, 0, width, height);
-      
-      const compressedData = canvas.toDataURL('image/jpeg', 0.6);
-      URL.revokeObjectURL(url);
-      resolve(compressedData.split(',')[1]);
-    };
-    img.onerror = () => {
-      URL.revokeObjectURL(url);
-      reject(new Error("图片解析失败，请尝试重新上传。"));
-    };
-    img.src = url;
-  });
 };
 
 const safetySettings = [
@@ -72,34 +68,25 @@ const safetySettings = [
   { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE },
 ];
 
-const handleAiError = (error: any) => {
-  console.error("Gemini API Error:", error);
-  const msg = error.message || String(error);
-  if (msg.includes("RESOURCE_EXHAUSTED") || msg.includes("429")) {
-    throw new Error("频率过快，请稍等30秒再点击。更换付费 Key 可永久取消此限制。");
-  }
-  throw new Error(`生成失败: ${msg}`);
-};
-
 const getStylePrompt = (style: VisualStyle, customDesc?: string): string => {
   if (style === VisualStyle.CUSTOM && customDesc) return customDesc;
   switch (style) {
     case VisualStyle.WATERCOLOR: 
-      return "Soft watercolor illustration on textured cold-press paper, wet-on-wet bleeding effects, delicate edges, artistic and gentle character designs.";
+      return "Soft watercolor illustration, wet-on-wet technique, beautiful bleeding effects, heavy cold-press watercolor paper texture, gentle abstract organic shapes, artistic and soothing.";
     case VisualStyle.OIL_PAINTING: 
-      return "Classic oil painting, visible thick impasto brushstrokes, canvas texture, dramatic chiaroscuro lighting, rich artistic atmosphere.";
+      return "Expressionist oil painting, visible thick impasto brushstrokes, coarse canvas grain texture, rich oil pigments, artistic textures, atmospheric lighting.";
     case VisualStyle.VINTAGE: 
-      return "Retro 1950s storybook style, muted nostalgic tones, halftone print textures, warm and comforting aesthetic.";
+      return "Retro mid-century storybook illustration, halftone dot texture, aged paper grain, warm nostalgic color palette, gentle character design.";
     case VisualStyle.FLAT_ART: 
-      return "Modern flat vector art with organic paper textures and fine grain noise, abstract and gentle character shapes, minimalist but textured.";
+      return "Artistic flat vector illustration, organic paper grain noise, subtle textures, soft minimalist abstract characters, professional aesthetic.";
     case VisualStyle.GHIBLI: 
-      return "Studio Ghibli style anime illustration, lush painted environments, cinematic lighting, nostalgic atmosphere, highly detailed.";
+      return "Studio Ghibli style, lush hand-painted background, cinematic lighting, nostalgic anime aesthetic, peaceful atmosphere.";
     case VisualStyle.PIXAR_3D: 
-      return "3D CGI animation style, Disney/Pixar look, vibrant colors, soft subsurface scattering, cute and friendly characters.";
+      return "3D CGI character design, Disney Pixar style, soft subsurface scattering, vibrant warm colors, high quality digital art.";
     case VisualStyle.CRAYON: 
-      return "Child-like crayon drawings with heavy waxy texture and rough paper grain, non-literal and abstract character forms, bright and playful.";
+      return "Child-like crayon drawing, waxy texture, heavy paper tooth grain, abstract and non-literal character shapes, bright playful coloring.";
     case VisualStyle.PAPER_CUT: 
-      return "Layered paper-cut collage art, distinct depth shadows, unique recycled paper textures, abstract and geometric character silhouettes.";
+      return "Layered paper-cut collage art, recycled fiber paper texture, distinct drop shadows for depth, geometric abstract silhouettes.";
     default: return style;
   }
 };
@@ -113,7 +100,7 @@ export const analyzeStyleImage = async (imageBase64: string): Promise<string> =>
       contents: {
         parts: [
           { inlineData: { data: base64Data, mimeType: 'image/jpeg' } },
-          { text: "深度分析此画风：1.主次色调与色彩搭配；2.构图规律；3.绘画特色（如笔触、肌理、线条感）。用英文总结成一段用于生图的 Style Description。" }
+          { text: "Analyze this art style thoroughly. Extract: 1. Primary and secondary color palette; 2. Composition style; 3. Artistic features like brushstrokes, textures, grain, or line work. Summarize into a single paragraph in English to be used as an AI style prompt for children's books." }
         ]
       }
     });
@@ -146,7 +133,7 @@ export const finalizeVisualScript = async (
       contents: {
         parts: [
           { inlineData: { data: charBase64, mimeType: 'image/jpeg' } },
-          { text: "分析此角色的关键特征并转化成适合绘本的中文描述（20字内）。" }
+          { text: "简要描述此角色的外貌特征（中文，20字内）。" }
         ]
       }
     });
@@ -154,7 +141,7 @@ export const finalizeVisualScript = async (
 
     const scriptResponse = await ai.models.generateContent({
       model: 'gemini-3-pro-preview',
-      contents: `角色特征: ${analyzedDesc}, 画风要求: ${stylePrompt}. 基于以下情节编写详细分镜提示词: ${pages.map(p => p.text).join('|')}. 仅返回 JSON: {updatedPages: [{text, visualPrompt}]}`,
+      contents: `角色: ${analyzedDesc}, 画风: ${stylePrompt}. 编写以下情节的英文生图提示词: ${pages.map(p => p.text).join('|')}. 仅返回 JSON: {updatedPages: [{text, visualPrompt}]}`,
       config: { responseMimeType: "application/json" }
     });
 
@@ -169,7 +156,8 @@ export const finalizeVisualScript = async (
 
     return { pages: finalPages, analyzedCharacterDesc: analyzedDesc, analyzedStyleDesc };
   } catch (error) {
-    return handleAiError(error);
+    console.error(error);
+    throw new Error("脚本优化失败，请重试。");
   }
 };
 
@@ -191,7 +179,7 @@ export const generateSceneImage = async (
       contents: {
         parts: [
           { inlineData: { data: charBase64, mimeType: 'image/jpeg' } },
-          { text: `consistent children's book illustration. Character: ${characterDesc}. Style: ${stylePrompt}. Scene: ${visualPrompt}. High quality, no text.` }
+          { text: `consistent children's book illustration. Character: ${characterDesc}. Style: ${stylePrompt}. Scene: ${visualPrompt}. High quality, 2D art, artistic composition, no text.` }
         ]
       },
       config: { safetySettings }
@@ -200,13 +188,13 @@ export const generateSceneImage = async (
     for (const part of response.candidates?.[0]?.content?.parts || []) {
       if (part.inlineData) return `data:image/jpeg;base64,${part.inlineData.data}`;
     }
-    throw new Error("AI未能返回有效的图像数据");
+    throw new Error("模型未返回图像数据");
   } catch (error) {
-    return handleAiError(error);
+    console.error(error);
+    throw new Error("生成失败: " + error.message);
   }
 };
 
-// Fix: Added missing export for editPageImage to handle scene modification
 export const editPageImage = async (
   pageImgUrl: string,
   charImg: string,
@@ -227,7 +215,7 @@ export const editPageImage = async (
         parts: [
           { inlineData: { data: pageBase64, mimeType: 'image/jpeg' } },
           { inlineData: { data: charBase64, mimeType: 'image/jpeg' } },
-          { text: `consistent children's book illustration modification. Based on this instruction: ${instruction}. Character: ${characterDesc}. Style: ${stylePrompt}. High quality, no text.` }
+          { text: `consistent book illustration edit. Change the first image based on: ${instruction}. Keep character from second image: ${characterDesc}. Style: ${stylePrompt}.` }
         ]
       },
       config: { safetySettings }
@@ -236,9 +224,9 @@ export const editPageImage = async (
     for (const part of response.candidates?.[0]?.content?.parts || []) {
       if (part.inlineData) return `data:image/jpeg;base64,${part.inlineData.data}`;
     }
-    throw new Error("AI未能返回有效的图像数据");
+    throw new Error("编辑失败");
   } catch (error) {
-    return handleAiError(error);
+    throw new Error("微调失败: " + error.message);
   }
 };
 
@@ -250,7 +238,7 @@ export const generateCharacterOptions = async (description: string, style: Visua
     const imgBase64 = await prepareImageForAi(image);
     parts.push({ inlineData: { data: imgBase64, mimeType: 'image/jpeg' } });
   }
-  parts.push({ text: `Character concept sheet. Description: ${description}. Multiple poses, abstract and gentle design. Art Style: ${stylePrompt}. White background.` });
+  parts.push({ text: `Character design sheet. Description: ${description}. Gentle abstract artistic character shapes. Art Style: ${stylePrompt}. Multiple poses, white background.` });
   
   try {
     const response = await ai.models.generateContent({ 
@@ -264,7 +252,7 @@ export const generateCharacterOptions = async (description: string, style: Visua
     }
     return images;
   } catch (error) {
-    return handleAiError(error);
+    throw new Error("形象生成失败: " + error.message);
   }
 };
 
@@ -275,7 +263,7 @@ export const generateStoryOutline = async (idea: string, template: StoryTemplate
     const imgBase64 = await prepareImageForAi(image);
     parts.push({ inlineData: { data: imgBase64, mimeType: "image/jpeg" } });
   }
-  parts.push({ text: `基于想法 "${idea}" 创作12页绘本大纲。模板: ${template}. 返回 JSON: {title, pages: [{type, text}]}` });
+  parts.push({ text: `基于想法 "${idea}" 创作12页绘本情节大纲。模板: ${template}. 返回 JSON: {title, pages: [{type, text}]}` });
   
   try {
     const response = await ai.models.generateContent({
@@ -287,6 +275,6 @@ export const generateStoryOutline = async (idea: string, template: StoryTemplate
     const data = JSON.parse(cleanJson);
     return { title: data.title, pages: (data.pages || []).map((p: any, idx: number) => ({ ...p, id: generateId(), pageNumber: idx + 1 })) };
   } catch (err) {
-    return handleAiError(err);
+    throw new Error("大纲生成失败");
   }
 };

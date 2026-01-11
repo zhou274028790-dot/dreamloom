@@ -83,7 +83,6 @@ const App: React.FC = () => {
           setUser({ ...profile, isLoggedIn: true });
           const projects = await loadUserProjects(fbUser.uid);
           setHistory(projects);
-          // 这里不再自动跳转 setCurrentView，保持在登录页状态，除非用户点击
         }
       } else {
         setFirebaseUid(null);
@@ -103,18 +102,28 @@ const App: React.FC = () => {
     return brightness < 128;
   }, [bgColor]);
 
+  /**
+   * 自动计算板块背景逻辑：
+   * 亮色背景下为纯白。
+   * 暗色背景下（如巧克力色 #2C211D），板块背景色设为稍微明亮一些的同色系半透明色。
+   */
   useEffect(() => {
-    const cardBg = isDarkBg ? 'rgba(255, 255, 255, 0.15)' : '#FFFFFF';
-    const borderColor = isDarkBg ? 'rgba(255, 255, 255, 0.2)' : 'rgba(234, 111, 35, 0.1)';
+    const hex = bgColor.replace('#', '');
+    const r = Math.min(255, parseInt(hex.substr(0, 2), 16) + 20);
+    const g = Math.min(255, parseInt(hex.substr(2, 2), 16) + 20);
+    const b = Math.min(255, parseInt(hex.substr(4, 2), 16) + 20);
+    
+    const cardBg = isDarkBg ? `rgba(${r}, ${g}, ${b}, 0.6)` : '#FFFFFF';
+    const borderColor = isDarkBg ? 'rgba(255, 255, 255, 0.15)' : 'rgba(234, 111, 35, 0.1)';
     const textMain = isDarkBg ? '#FFFFFF' : '#2C211D';
-    const textSub = isDarkBg ? 'rgba(255, 255, 255, 0.65)' : 'rgba(44, 33, 29, 0.5)';
+    const textSub = isDarkBg ? 'rgba(255, 255, 255, 0.5)' : 'rgba(44, 33, 29, 0.5)';
 
     document.documentElement.style.setProperty('--bg-paper', bgColor);
     document.documentElement.style.setProperty('--text-main', textMain);
     document.documentElement.style.setProperty('--text-sub', textSub);
     document.documentElement.style.setProperty('--card-bg', cardBg);
     document.documentElement.style.setProperty('--border-color', borderColor);
-    document.documentElement.style.setProperty('--card-shadow', isDarkBg ? '0 20px 60px rgba(0,0,0,0.6)' : '0 4px 20px rgba(0, 0, 0, 0.05)');
+    document.documentElement.style.setProperty('--card-shadow', isDarkBg ? '0 12px 40px rgba(0,0,0,0.5)' : '0 4px 20px rgba(0, 0, 0, 0.05)');
   }, [bgColor, isDarkBg]);
 
   const updateProject = async (updates: Partial<BookProject>) => {
