@@ -10,6 +10,14 @@ interface Props {
 }
 
 const BookLibrary: React.FC<Props> = ({ history, onSelect, onDelete, onNewProject }) => {
+  
+  const getStatus = (book: BookProject) => {
+    if (book.isPaid) return { label: '已购', color: 'bg-yellow-400', icon: 'fa-crown', text: 'text-white' };
+    const isComplete = book.pages.length > 0 && book.pages.every(p => !!p.imageUrl);
+    if (isComplete) return { label: '已完成', color: 'bg-green-500', icon: 'fa-check', text: 'text-white' };
+    return { label: '草稿', color: 'bg-gray-400', icon: 'fa-pencil-alt', text: 'text-white' };
+  };
+
   if (history.length === 0) {
     return (
       <div className="max-w-4xl mx-auto py-20 text-center space-y-8 animate-in fade-in zoom-in-95 duration-700">
@@ -33,14 +41,14 @@ const BookLibrary: React.FC<Props> = ({ history, onSelect, onDelete, onNewProjec
 
   return (
     <div className="space-y-12 animate-in fade-in duration-500">
-      <div className="flex justify-between items-center">
+      <div className="flex justify-between items-center px-2">
         <div>
           <h2 className="text-4xl font-header font-bold" style={{ color: 'var(--text-main)' }}>我的梦想图书馆</h2>
           <p className="opacity-50 font-medium">这里收藏了你所有的独特冒险。</p>
         </div>
         <button
           onClick={onNewProject}
-          className="btn-candy px-6 py-3 text-white rounded-2xl font-bold transition-all flex items-center gap-2"
+          className="btn-candy px-6 py-3 text-white rounded-2xl font-bold transition-all flex items-center gap-2 shadow-lg"
         >
           <i className="fas fa-plus"></i>
           制作新绘本
@@ -48,78 +56,95 @@ const BookLibrary: React.FC<Props> = ({ history, onSelect, onDelete, onNewProjec
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
-        {history.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)).map((book) => (
-          <div 
-            key={book.id} 
-            className="card-dynamic rounded-[2.5rem] overflow-hidden group hover:-translate-y-2 flex flex-col"
-          >
+        {history.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)).map((book) => {
+          const status = getStatus(book);
+          return (
             <div 
-              className="relative aspect-[3/4] bg-[var(--text-main)]/5 cursor-pointer overflow-hidden"
-              onClick={() => onSelect({ ...book, currentStep: 'press' })}
+              key={book.id} 
+              className="card-dynamic rounded-[2.5rem] overflow-hidden group hover:-translate-y-2 flex flex-col transition-all duration-300"
             >
-              {book.pages[0]?.imageUrl ? (
-                <img 
-                  src={book.pages[0].imageUrl} 
-                  className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" 
-                  alt={book.title} 
-                />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center opacity-10 text-6xl italic font-header">
-                   {book.title?.charAt(0) || "梦"}
+              {/* 封面区域：1:1 比例 */}
+              <div 
+                className="relative aspect-square bg-[#f0f0f0] cursor-pointer overflow-hidden"
+                onClick={() => onSelect({ ...book, currentStep: 'press' })}
+              >
+                {book.pages[0]?.imageUrl ? (
+                  <img 
+                    src={book.pages[0].imageUrl} 
+                    className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" 
+                    alt={book.title} 
+                  />
+                ) : (
+                  <div className="w-full h-full flex flex-col items-center justify-center p-8 bg-gradient-to-br from-orange-50 to-orange-100/30">
+                     <div className="w-20 h-20 bg-white/80 rounded-full flex items-center justify-center shadow-sm mb-4">
+                        <i className="fas fa-star text-[#EA6F23] text-3xl animate-pulse"></i>
+                     </div>
+                     <p className="text-[#EA6F23] font-bold text-sm tracking-widest opacity-40">正在编织梦境...</p>
+                  </div>
+                )}
+                
+                {/* 状态胶囊标签 */}
+                <div className={`absolute top-4 right-4 ${status.color} ${status.text} px-3 py-1 rounded-full flex items-center gap-1.5 shadow-lg border border-white/20 z-10 transition-transform group-hover:scale-105`}>
+                   <i className={`fas ${status.icon} text-[10px]`}></i>
+                   <span className="text-[10px] font-black uppercase tracking-widest">{status.label}</span>
                 </div>
-              )}
-              
-              <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-8">
-                <button className="w-full py-3 bg-white text-orange-600 rounded-xl font-bold shadow-lg">
-                  打开绘本
-                </button>
+
+                {/* 封面阴影叠加 */}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
               </div>
 
-              <div className="absolute top-4 right-4 flex gap-2">
-                <button 
-                  onClick={(e) => { e.stopPropagation(); if(confirm("确定要删除这本绘本吗？")) onDelete(book.id); }}
-                  className="w-10 h-10 bg-[var(--card-bg)]/90 backdrop-blur rounded-full flex items-center justify-center text-red-500 shadow-sm opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-500 hover:text-white"
-                >
-                  <i className="fas fa-trash-alt"></i>
-                </button>
+              {/* 信息与操作区 */}
+              <div className="p-6 space-y-5">
+                <div className="space-y-1">
+                  <h3 className="text-xl font-bold font-header line-clamp-1" style={{ color: 'var(--text-main)' }}>{book.title || "未命名故事"}</h3>
+                  <div className="flex items-center gap-2 text-xs font-bold text-[#EA6F23] uppercase tracking-widest opacity-60">
+                    <i className="fas fa-wand-magic-sparkles text-[10px]"></i>
+                    {book.visualStyle?.split(' ')[0] || "艺术"} • {book.pages?.length || 0} 页
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-12 gap-2">
+                  {/* 编辑按钮 & 删除按钮 */}
+                  <div className="col-span-4 flex gap-1">
+                    <button 
+                      onClick={() => onSelect({ ...book, currentStep: 'director' })}
+                      className="flex-1 py-3 text-[11px] font-bold bg-gray-100 text-gray-400 rounded-xl hover:bg-gray-200 transition-all flex items-center justify-center gap-1.5"
+                    >
+                      <i className="fas fa-pen text-[9px]"></i> 编辑
+                    </button>
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); if(confirm("确定要删除这本绘本吗？")) onDelete(book.id); }}
+                      className="w-10 py-3 bg-red-50 text-red-300 rounded-xl hover:bg-red-500 hover:text-white transition-all flex items-center justify-center"
+                      title="删除作品"
+                    >
+                      <i className="fas fa-trash-alt text-[10px]"></i>
+                    </button>
+                  </div>
+
+                  {/* 阅读按钮 - 核心操作 */}
+                  <div className="col-span-4">
+                    <button 
+                      onClick={() => onSelect({ ...book, currentStep: 'press' })}
+                      className="w-full py-3 text-[11px] font-bold bg-[#EA6F23] text-white rounded-xl shadow-md hover:shadow-lg hover:-translate-y-0.5 transition-all flex items-center justify-center gap-1.5"
+                    >
+                      <i className="fas fa-eye text-[10px]"></i> 阅读
+                    </button>
+                  </div>
+
+                  {/* 订购按钮 - 搞钱按钮 */}
+                  <div className="col-span-4">
+                    <button 
+                      onClick={() => onSelect({ ...book, currentStep: 'press' })}
+                      className="w-full py-3 text-[11px] font-bold bg-yellow-400 text-yellow-900 rounded-xl shadow-lg border-2 border-yellow-200 hover:bg-yellow-300 hover:-translate-y-0.5 transition-all flex items-center justify-center gap-1.5 ring-yellow-400/20 hover:ring-4"
+                    >
+                      <i className="fas fa-gift text-[10px]"></i> 订购
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
-
-            <div className="p-6 space-y-4">
-              <div className="space-y-1">
-                <h3 className="text-xl font-bold font-header line-clamp-1" style={{ color: 'var(--text-main)' }}>{book.title || "未命名故事"}</h3>
-                <div className="flex items-center gap-2 text-xs font-bold text-[#EA6F23] uppercase tracking-widest">
-                  <i className="fas fa-magic text-[10px]"></i>
-                  {book.visualStyle?.split(' ')[0] || "艺术"} • {book.pages?.length || 0} 页
-                </div>
-              </div>
-
-              <div className="grid grid-cols-3 gap-2">
-                 <button 
-                  onClick={() => onSelect({ ...book, currentStep: 'director' })}
-                  className="py-2.5 text-xs font-bold bg-blue-500/10 text-blue-500 rounded-xl hover:bg-blue-500 hover:text-white transition-all flex flex-col items-center gap-1"
-                >
-                  <i className="fas fa-edit"></i>
-                  编辑
-                </button>
-                 <button 
-                  onClick={() => onSelect({ ...book, currentStep: 'press' })}
-                  className="py-2.5 text-xs font-bold bg-[#EA6F23]/10 text-[#EA6F23] rounded-xl hover:bg-[#EA6F23] hover:text-white transition-all flex flex-col items-center gap-1"
-                >
-                  <i className="fas fa-eye"></i>
-                  阅读
-                </button>
-                <button 
-                  onClick={() => onSelect({ ...book, currentStep: 'press' })}
-                  className="py-2.5 text-xs font-bold bg-green-500/10 text-green-500 rounded-xl hover:bg-green-500 hover:text-white transition-all flex flex-col items-center gap-1"
-                >
-                  <i className="fas fa-print"></i>
-                  订购
-                </button>
-              </div>
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

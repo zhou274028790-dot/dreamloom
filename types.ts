@@ -42,7 +42,8 @@ export interface BookProject {
   visualStyle: VisualStyle;
   styleReferenceImage?: string; 
   styleDescription?: string;    
-  extractionCode?: string; // 新增：提取码
+  extractionCode?: string;
+  isPaid?: boolean; // 新增：是否已支付/解锁
   currentStep: 'idea' | 'character' | 'director' | 'press';
   createdAt?: number;
   author?: string;
