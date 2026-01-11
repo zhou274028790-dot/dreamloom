@@ -15,6 +15,19 @@ import BrandStory from './components/BrandStory';
 import MyProfile from './components/MyProfile';
 import Login from './components/Login';
 
+// 修复 TypeScript 构建报错：声明全局 aistudio 接口
+// Ensure the AIStudio interface is properly declared to match project-wide type expectations.
+interface AIStudio {
+  hasSelectedApiKey: () => Promise<boolean>;
+  openSelectKey: () => Promise<void>;
+}
+
+declare global {
+  interface Window {
+    aistudio: AIStudio;
+  }
+}
+
 const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<AppView>('login');
   const [lang, setLang] = useState<Language>('zh');
@@ -45,14 +58,26 @@ const App: React.FC = () => {
 
   const [history, setHistory] = useState<BookProject[]>([]);
 
-  // 检查 API Key 选择状态
+  // 检查 API Key 状态，如果环境变量 process.env.API_KEY 为空，则需要用户手动选 Key
   useEffect(() => {
     const checkKey = async () => {
+      // 优先检查环境变量
+      if (typeof process !== 'undefined' && process.env.API_KEY) {
+        setHasKey(true);
+        return;
+      }
+      
+      // 如果环境变量没有，则尝试通过 aistudio 弹窗选择
       if (window.aistudio) {
-        const selected = await window.aistudio.hasSelectedApiKey();
-        setHasKey(selected);
+        try {
+          const selected = await window.aistudio.hasSelectedApiKey();
+          setHasKey(selected);
+        } catch (e) {
+          setHasKey(false);
+        }
       } else {
-        setHasKey(true); // 如果不在 AI Studio 环境，假定 Key 已配置
+        // 在普通浏览器环境下，如果没配环境变量也没 aistudio，默认通过（后续调用会报原始错误）
+        setHasKey(true); 
       }
     };
     checkKey();
@@ -61,7 +86,8 @@ const App: React.FC = () => {
   const handleOpenKeySelector = async () => {
     if (window.aistudio) {
       await window.aistudio.openSelectKey();
-      setHasKey(true); // 按照规范，假设选择成功
+      // 假设用户点击后已完成选择，强制进入 App
+      setHasKey(true);
     }
   };
 
@@ -147,11 +173,11 @@ const App: React.FC = () => {
       setCurrentView('studio');
     } catch (e: any) {
       console.error("Login Error:", e);
-      alert(`登录失败: 请检查网络并确保 Firebase 匿名登录已开启。`);
+      alert(`登录失败: 请确保 Firebase 配置正确。`);
     }
   };
 
-  // 如果没有 API Key，显示一个引导层
+  // 渲染 Key 选择引导
   if (hasKey === false) {
     return (
       <div className="min-h-screen bg-[#FDF6F0] flex flex-col items-center justify-center p-6 text-center">
@@ -160,11 +186,13 @@ const App: React.FC = () => {
               <i className="fas fa-key"></i>
            </div>
            <div className="space-y-2">
-              <h2 className="text-2xl font-bold font-header">激活造梦能量</h2>
-              <p className="opacity-60 text-sm">由于使用了高级 AI 模型，您需要先关联一个付费项目的 API Key 才能开始创作。</p>
-              <p className="text-[10px] text-blue-500 font-bold underline cursor-pointer" onClick={() => window.open('https://ai.google.dev/gemini-api/docs/billing', '_blank')}>查看计费说明</p>
+              <h2 className="text-2xl font-bold font-header">关联 API 密钥</h2>
+              <p className="opacity-60 text-sm font-medium">您已经有了付费密钥。为了在 App 中调用 Gemini 3 模型，请点击下方按钮并从列表中选择一个已关联付费项目的 Key。</p>
+              <p className="text-[10px] text-blue-500 font-bold underline cursor-pointer" onClick={() => window.open('https://ai.google.dev/gemini-api/docs/billing', '_blank')}>计费说明文档</p>
            </div>
-           <button onClick={handleOpenKeySelector} className="btn-candy w-full py-4 text-white rounded-2xl font-bold shadow-xl">选择 API 密钥</button>
+           <button onClick={handleOpenKeySelector} className="btn-candy w-full py-4 text-white rounded-2xl font-bold shadow-xl">
+             <i className="fas fa-external-link-alt mr-2"></i> 选择 API 密钥
+           </button>
         </div>
       </div>
     );
