@@ -56,6 +56,7 @@ const CharacterStudio: React.FC<Props> = ({ project, onNext, onBack, userCoins, 
     if (!selectedImage) return;
     setFinalizingStep('upload');
     try {
+      // 保持原始 Base64 以防下一步直接使用
       const charUrl = selectedImage.startsWith('data:') ? await uploadImageToCloud(`chars/${project.id}_${Date.now()}.png`, selectedImage) : selectedImage;
       const sRefUrl = (styleRefImg && styleRefImg.startsWith('data:')) ? await uploadImageToCloud(`styles/${project.id}_${Date.now()}.png`, styleRefImg) : styleRefImg;
 
@@ -63,7 +64,7 @@ const CharacterStudio: React.FC<Props> = ({ project, onNext, onBack, userCoins, 
       const { pages: fullPages, analyzedCharacterDesc, analyzedStyleDesc } = await finalizeVisualScript(
         project.pages, 
         desc, 
-        selectedImage, 
+        selectedImage, // 这里优先传 Base64 确保同步脚本不报错
         style,
         styleRefImg
       );
@@ -79,8 +80,8 @@ const CharacterStudio: React.FC<Props> = ({ project, onNext, onBack, userCoins, 
         pages: fullPages,
         currentStep: 'director' 
       });
-    } catch (err) {
-      alert("全书脚本同步失败，请检查 API 密钥。");
+    } catch (err: any) {
+      alert("同步失败: " + err.message);
     } finally {
       setFinalizingStep('');
     }
@@ -113,32 +114,40 @@ const CharacterStudio: React.FC<Props> = ({ project, onNext, onBack, userCoins, 
         <h2 className="text-2xl md:text-4xl font-header font-bold" style={{ color: 'var(--text-main)' }}>2. 形象工作室</h2>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 w-full items-start">
-        <div className="lg:col-span-4 space-y-6">
-          <div className="card-dynamic p-6 rounded-[32px] shadow-xl space-y-6 border border-[var(--border-color)]">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 w-full items-stretch">
+        <div className="lg:col-span-4 space-y-6 flex flex-col">
+          <div className="card-dynamic p-6 rounded-[32px] shadow-xl space-y-6 border border-[var(--border-color)] flex-1">
             <div>
-              <label className="text-[10px] font-black opacity-30 uppercase tracking-widest mb-2 block">角色参考 (可选)</label>
+              <label className="text-[10px] font-black opacity-30 uppercase tracking-widest mb-2 block">主角形象描述</label>
+              <textarea 
+                className="w-full h-24 p-4 rounded-2xl bg-gray-50 border border-[var(--border-color)] focus:ring-4 outline-none text-sm font-semibold transition-all resize-none mb-4" 
+                placeholder="比如：一只戴着蓝色领结的白色小猫，大眼睛..." 
+                value={desc} 
+                onChange={(e) => setDesc(e.target.value)} 
+              />
+              
               <div onClick={() => roleInputRef.current?.click()} className="w-full aspect-video rounded-2xl border-2 border-dashed border-[#EA6F23]/20 bg-gray-50 flex items-center justify-center cursor-pointer overflow-hidden group">
-                {roleRefImg ? <img src={roleRefImg} className="w-full h-full object-cover" /> : <i className="fas fa-user-plus text-2xl text-[#EA6F23]/20 group-hover:scale-110 transition-transform"></i>}
+                {roleRefImg ? <img src={roleRefImg} className="w-full h-full object-cover" /> : <div className="text-center"><i className="fas fa-user-plus text-2xl text-[#EA6F23]/20 mb-1"></i><p className="text-[10px] font-bold opacity-30">上传角色草图 (可选)</p></div>}
               </div>
               <input type="file" ref={roleInputRef} className="hidden" onChange={(e) => handleFileUpload(e, setRoleRefImg)} />
             </div>
 
-            <textarea className="w-full h-24 p-4 rounded-2xl bg-gray-50 border border-[var(--border-color)] focus:ring-4 outline-none text-sm font-semibold transition-all resize-none" placeholder="描述你的角色（如：戴草帽的小象波波）" value={desc} onChange={(e) => setDesc(e.target.value)} />
-
-            <div className="grid grid-cols-2 gap-2">
-              {styles.map(s => (
-                <button key={s.id} onClick={() => setStyle(s.id)} className={`p-3 rounded-xl text-xs font-bold border transition-all ${style === s.id ? 'bg-[#EA6F23] text-white shadow-md border-transparent' : 'bg-gray-50 border-[var(--border-color)] opacity-70'}`}>
-                  {s.icon} {s.label}
-                </button>
-              ))}
+            <div>
+               <label className="text-[10px] font-black opacity-30 uppercase tracking-widest mb-2 block">选择画风特点</label>
+               <div className="grid grid-cols-3 gap-2">
+                {styles.map(s => (
+                  <button key={s.id} onClick={() => setStyle(s.id)} className={`p-2 rounded-xl text-[10px] font-bold border transition-all ${style === s.id ? 'bg-[#EA6F23] text-white shadow-md border-transparent' : 'bg-gray-50 border-[var(--border-color)] opacity-70'}`}>
+                    {s.icon} <br/> {s.label}
+                  </button>
+                ))}
+              </div>
             </div>
 
             {style === VisualStyle.CUSTOM && (
-              <div className="animate-in fade-in">
-                <label className="text-[10px] font-black opacity-30 uppercase tracking-widest mb-2 block">画风参考 (必选)</label>
-                <div onClick={() => styleInputRef.current?.click()} className="w-full aspect-video rounded-2xl border-2 border-dashed border-[#EA6F23]/20 bg-gray-50 flex items-center justify-center cursor-pointer overflow-hidden">
-                  {styleRefImg ? <img src={styleRefImg} className="w-full h-full object-cover" /> : <i className="fas fa-palette text-2xl text-[#EA6F23]/20"></i>}
+              <div className="animate-in fade-in space-y-2">
+                <label className="text-[10px] font-black opacity-30 uppercase tracking-widest block">画风参考图</label>
+                <div onClick={() => styleInputRef.current?.click()} className="w-full aspect-video rounded-2xl border-2 border-dashed border-[#EA6F23]/20 bg-gray-50 flex items-center justify-center cursor-pointer overflow-hidden group">
+                  {styleRefImg ? <img src={styleRefImg} className="w-full h-full object-cover" /> : <div className="text-center"><i className="fas fa-palette text-2xl text-[#EA6F23]/20 mb-1"></i><p className="text-[10px] font-bold opacity-30">上传风格样本图片</p></div>}
                 </div>
                 <input type="file" ref={styleInputRef} className="hidden" onChange={(e) => handleFileUpload(e, setStyleRefImg)} />
               </div>
@@ -151,16 +160,16 @@ const CharacterStudio: React.FC<Props> = ({ project, onNext, onBack, userCoins, 
           </div>
         </div>
 
-        <div className="lg:col-span-8 card-dynamic p-4 rounded-[32px] shadow-2xl flex flex-col items-center justify-center min-h-[500px] border border-[var(--border-color)] bg-white relative overflow-hidden">
+        <div className="lg:col-span-8 card-dynamic p-6 rounded-[32px] shadow-2xl flex flex-col items-center justify-center border border-[var(--border-color)] bg-white relative overflow-hidden">
           {selectedImage ? (
-            <div className="w-full h-full flex flex-col items-center animate-in zoom-in-95">
-              <div className="w-full flex-1 flex items-center justify-center p-4">
-                 <img src={selectedImage} className="max-w-full max-h-[500px] object-contain rounded-2xl shadow-xl" />
+            <div className="w-full h-full flex flex-col animate-in zoom-in-95">
+              <div className="flex-1 flex items-center justify-center overflow-hidden">
+                 <img src={selectedImage} className="w-full h-full object-contain rounded-2xl shadow-xl" />
               </div>
               {options.length > 1 && (
-                <div className="flex gap-4 p-4 bg-gray-50 w-full border-t border-[var(--border-color)] overflow-x-auto no-scrollbar">
+                <div className="flex gap-4 p-4 mt-4 bg-gray-50 w-full rounded-2xl border border-[var(--border-color)] overflow-x-auto no-scrollbar">
                   {options.map((img, i) => (
-                    <img key={i} onClick={() => setSelectedImage(img)} src={img} className={`w-24 h-24 rounded-xl cursor-pointer border-4 transition-all flex-shrink-0 ${selectedImage === img ? 'border-[#EA6F23] scale-105' : 'border-transparent opacity-40'}`} />
+                    <img key={i} onClick={() => setSelectedImage(img)} src={img} className={`w-20 h-20 rounded-xl cursor-pointer border-4 transition-all flex-shrink-0 ${selectedImage === img ? 'border-[#EA6F23] scale-105' : 'border-transparent opacity-40'}`} />
                   ))}
                 </div>
               )}
@@ -168,16 +177,16 @@ const CharacterStudio: React.FC<Props> = ({ project, onNext, onBack, userCoins, 
           ) : (
             <div className="flex flex-col items-center gap-4 opacity-10">
                <i className="fas fa-id-badge text-8xl"></i>
-               <p className="font-bold tracking-widest uppercase">设计主角形象以继续</p>
+               <p className="font-bold tracking-widest uppercase">请描述并生成主角</p>
             </div>
           )}
         </div>
       </div>
 
       <div className="flex justify-between items-center pt-8">
-        <button onClick={onBack} className="px-8 py-3 font-bold opacity-40">返回</button>
+        <button onClick={onBack} className="px-8 py-3 font-bold opacity-40 hover:opacity-100">返回上一步</button>
         <button onClick={handleProceed} disabled={!selectedImage || finalizingStep !== ''} className="btn-candy px-12 py-4 text-white rounded-[24px] font-bold shadow-xl">
-          确认形象并同步全书 <i className="fas fa-arrow-right ml-2"></i>
+          确认形象并同步分镜 <i className="fas fa-arrow-right ml-2"></i>
         </button>
       </div>
     </div>

@@ -45,16 +45,12 @@ const App: React.FC = () => {
 
   const [history, setHistory] = useState<BookProject[]>([]);
 
-  // 检查 API Key 状态
   useEffect(() => {
     const checkKey = async () => {
-      // 1. 检查环境变量注入（Vite 会在构建时处理）
       if (process.env.API_KEY && process.env.API_KEY !== "undefined" && process.env.API_KEY.length > 5) {
         setHasKey(true);
         return;
       }
-      
-      // 2. 检查 aistudio 运行环境（使用 any 绕过 TS 检查以确保部署成功）
       const win = window as any;
       if (win.aistudio) {
         try {
@@ -64,7 +60,6 @@ const App: React.FC = () => {
           setHasKey(false);
         }
       } else {
-        // 如果环境变量存在（即使是打包后的变量），也算有 Key
         setHasKey(!!process.env.API_KEY); 
       }
     };
@@ -110,11 +105,18 @@ const App: React.FC = () => {
   }, [bgColor]);
 
   useEffect(() => {
+    // 深色模式配色逻辑增强
+    const cardBg = isDarkBg ? 'rgba(255,255,255,0.08)' : '#FFFFFF';
+    const borderColor = isDarkBg ? 'rgba(255,255,255,0.1)' : 'rgba(234, 111, 35, 0.1)';
+    const textMain = isDarkBg ? '#F9F6F0' : '#2C211D';
+    const textSub = isDarkBg ? 'rgba(249,246,240,0.5)' : 'rgba(44,33,29,0.5)';
+
     document.documentElement.style.setProperty('--bg-paper', bgColor);
-    document.documentElement.style.setProperty('--text-main', isDarkBg ? '#FFFFFF' : '#2C211D');
-    document.documentElement.style.setProperty('--text-sub', isDarkBg ? 'rgba(255,255,255,0.5)' : 'rgba(44,33,29,0.5)');
-    document.documentElement.style.setProperty('--card-bg', isDarkBg ? '#3D332F' : '#FFFFFF');
-    document.documentElement.style.setProperty('--border-color', isDarkBg ? 'rgba(255,255,255,0.05)' : 'rgba(234, 111, 35, 0.1)');
+    document.documentElement.style.setProperty('--text-main', textMain);
+    document.documentElement.style.setProperty('--text-sub', textSub);
+    document.documentElement.style.setProperty('--card-bg', cardBg);
+    document.documentElement.style.setProperty('--border-color', borderColor);
+    document.documentElement.style.setProperty('--card-shadow', isDarkBg ? '0 10px 40px rgba(0,0,0,0.4)' : '0 4px 20px rgba(0, 0, 0, 0.05)');
   }, [bgColor, isDarkBg]);
 
   const updateProject = async (updates: Partial<BookProject>) => {
@@ -187,27 +189,27 @@ const App: React.FC = () => {
   return (
     <div className={`min-h-screen flex flex-col bg-[var(--bg-paper)] transition-all duration-500`} style={{ color: 'var(--text-main)' }}>
       {user.isLoggedIn && (
-        <header className={`bg-[var(--card-bg)]/90 backdrop-blur-md border-b border-[var(--border-color)] py-3 px-4 md:px-6 sticky top-0 z-[60] shadow-sm`}>
+        <header className={`bg-[var(--card-bg)] backdrop-blur-2xl border-b border-[var(--border-color)] py-3 px-4 md:px-6 sticky top-0 z-[60] shadow-sm`}>
            <div className="max-w-7xl mx-auto flex justify-between items-center relative">
              <div className="flex items-center gap-3 cursor-pointer" onClick={() => setCurrentView('studio')}>
-                <div className="w-9 h-9 md:w-10 md:h-10 bg-[#EA6F23] rounded-xl flex items-center justify-center shadow-lg flex-shrink-0">
-                  <i className="fas fa-magic text-white"></i>
+                <div className="w-10 h-10 bg-[#EA6F23] rounded-2xl flex items-center justify-center shadow-lg flex-shrink-0 transform rotate-3">
+                  <i className="fas fa-magic text-white text-sm"></i>
                 </div>
-                <h1 className="text-base md:text-lg font-header font-bold">DreamLoom</h1>
+                <h1 className="text-lg md:text-xl font-header font-bold tracking-tight">DreamLoom</h1>
              </div>
              
-             <div className="flex items-center gap-3">
-               <div className="flex items-center gap-2 px-3 py-1 bg-[#EA6F23]/5 rounded-full border border-[#EA6F23]/10">
-                 <i className="fas fa-seedling text-[#EA6F23] text-xs"></i>
-                 <span className="text-sm font-bold text-[#EA6F23]">{user.coins}</span>
+             <div className="flex items-center gap-4">
+               <div className="flex items-center gap-2 px-4 py-1.5 bg-[#EA6F23]/10 rounded-full border border-[#EA6F23]/20 shadow-inner">
+                 <i className="fas fa-seedling text-[#EA6F23] text-[10px]"></i>
+                 <span className="text-xs font-black text-[#EA6F23]">{user.coins}</span>
                </div>
-               <button onClick={() => setIsMenuOpen(!isMenuOpen)} className="w-9 h-9 flex items-center justify-center text-[var(--text-main)] hover:bg-[var(--text-main)]/5 rounded-xl transition-colors">
+               <button onClick={() => setIsMenuOpen(!isMenuOpen)} className="w-10 h-10 flex items-center justify-center text-[var(--text-main)] hover:bg-[var(--text-main)]/5 rounded-2xl transition-all active:scale-90">
                   <i className={`fas ${isMenuOpen ? 'fa-times' : 'fa-bars'}`}></i>
                </button>
              </div>
 
              {isMenuOpen && (
-               <div className="absolute top-16 right-0 w-48 bg-[var(--card-bg)] rounded-2xl shadow-2xl border border-[var(--border-color)] p-2 animate-in zoom-in-95 z-[70]">
+               <div className="absolute top-16 right-0 w-52 bg-[var(--card-bg)] rounded-[2rem] shadow-2xl border border-[var(--border-color)] p-3 animate-in zoom-in-95 z-[70] backdrop-blur-3xl">
                   <MenuBtn icon="fa-compass" label={lang === 'zh' ? '灵感工坊' : 'Studio'} active={currentView === 'studio'} onClick={() => { setCurrentView('studio'); setIsMenuOpen(false); }} />
                   <MenuBtn icon="fa-book" label={lang === 'zh' ? '作品集' : 'Library'} active={currentView === 'library'} onClick={() => { setCurrentView('library'); setIsMenuOpen(false); }} />
                   <MenuBtn icon="fa-map" label={lang === 'zh' ? '阅读广场' : 'Plaza'} active={currentView === 'plaza'} onClick={() => { setCurrentView('plaza'); setIsMenuOpen(false); }} />
@@ -220,7 +222,7 @@ const App: React.FC = () => {
       )}
 
       <main className="flex-1 overflow-x-hidden w-full">
-        <div className="max-w-7xl mx-auto px-4 py-6 md:py-8 w-full">
+        <div className="max-w-7xl mx-auto px-4 py-6 md:py-10 w-full">
           {currentView === 'login' ? <Login onLogin={handleLogin} lang={lang} /> : 
            currentView === 'plaza' ? <ReadingPlaza lang={lang} onUseStyle={(style) => { setProject(p => ({ ...p, visualStyle: style, currentStep: 'idea', id: Math.random().toString(36).substr(2, 9), pages: [] })); setCurrentView('studio'); }} onUseIdea={(idea) => { setProject(p => ({ ...p, originalIdea: idea, currentStep: 'idea', id: Math.random().toString(36).substr(2, 9), pages: [] })); setCurrentView('studio'); }} /> :
            currentView === 'brand' ? <BrandStory lang={lang} isDark={isDarkBg} /> :
@@ -245,15 +247,15 @@ const App: React.FC = () => {
       {showReward && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 animate-in fade-in">
           <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setShowReward(false)}></div>
-          <div className="relative bg-[var(--card-bg)] p-10 rounded-[3rem] shadow-2xl text-center space-y-6 max-w-sm w-full zoom-in-95">
-             <div className="w-20 h-20 bg-yellow-400 rounded-full flex items-center justify-center text-white text-4xl mx-auto shadow-lg animate-bounce">
+          <div className="relative bg-[var(--card-bg)] p-12 rounded-[3.5rem] shadow-2xl text-center space-y-8 max-w-sm w-full zoom-in-95 border border-[var(--border-color)]">
+             <div className="w-24 h-24 bg-yellow-400 rounded-[2rem] flex items-center justify-center text-white text-5xl mx-auto shadow-xl animate-bounce">
                 <i className="fas fa-gift"></i>
              </div>
-             <div className="space-y-2">
-                <h3 className="text-2xl font-bold font-header">新造梦师礼包</h3>
-                <p className="opacity-60 font-medium">欢迎加入 DreamLoom！我们赠送了您 80 颗金豆，开启您的第一次绘本创作吧。</p>
+             <div className="space-y-3">
+                <h3 className="text-3xl font-bold font-header">新造梦师礼包</h3>
+                <p className="opacity-60 font-medium leading-relaxed">欢迎加入 DreamLoom！我们赠送了您 80 颗金豆，开启您的第一次绘本创作吧。</p>
              </div>
-             <button onClick={() => setShowReward(false)} className="btn-candy w-full py-4 text-white rounded-2xl font-bold shadow-xl">收下好礼</button>
+             <button onClick={() => setShowReward(false)} className="btn-candy w-full py-5 text-white rounded-[2rem] font-bold shadow-2xl">立即开启创作</button>
           </div>
         </div>
       )}
@@ -262,7 +264,7 @@ const App: React.FC = () => {
 };
 
 const MenuBtn: React.FC<{ icon: string, label: string, active: boolean, onClick: () => void }> = ({ icon, label, active, onClick }) => (
-  <button onClick={onClick} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-xs transition-all ${active ? 'bg-[#EA6F23] text-white shadow-lg' : 'text-[var(--text-sub)] hover:bg-[var(--text-main)]/5'}`}>
+  <button onClick={onClick} className={`w-full flex items-center gap-4 px-5 py-4 rounded-[1.5rem] font-bold text-sm transition-all ${active ? 'bg-[#EA6F23] text-white shadow-xl' : 'text-[var(--text-sub)] hover:bg-[var(--text-main)]/5'}`}>
     <i className={`fas ${icon} ${active ? '' : 'opacity-40'}`}></i>
     {label}
   </button>

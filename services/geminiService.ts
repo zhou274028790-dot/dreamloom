@@ -4,6 +4,28 @@ import { StoryTemplate, StoryPage, VisualStyle } from "../types";
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
 
+/**
+ * 助手：确保数据是 Base64。如果是 URL，则抓取并转换。
+ */
+const ensureBase64 = async (imgData: string): Promise<string> => {
+  if (imgData.startsWith('data:')) {
+    return imgData.split(',')[1];
+  }
+  try {
+    const resp = await fetch(imgData);
+    const blob = await resp.blob();
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve((reader.result as string).split(',')[1]);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  } catch (e) {
+    console.error("Failed to convert image URL to base64:", e);
+    throw new Error("无法处理参考图片数据，请尝试重新上传。");
+  }
+};
+
 const safetySettings = [
   { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
   { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
@@ -16,7 +38,6 @@ const robustJsonParse = (text: string) => {
   try {
     return JSON.parse(clean);
   } catch (e) {
-    console.error("JSON Parse Error. Raw text:", text);
     throw new Error("AI 返回数据格式错误");
   }
 };
@@ -44,6 +65,7 @@ export const finalizeVisualScript = async (
   styleRefImage?: string
 ): Promise<{ pages: StoryPage[], analyzedCharacterDesc: string, analyzedStyleDesc?: string }> => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const charBase64 = await ensureBase64(characterSeedImage);
   
   let analyzedStyleDesc = "";
   if (style === VisualStyle.CUSTOM && styleRefImage) {
@@ -57,7 +79,7 @@ export const finalizeVisualScript = async (
       model: 'gemini-3-pro-preview',
       contents: {
         parts: [
-          { inlineData: { data: characterSeedImage.split(',')[1], mimeType: 'image/png' } },
+          { inlineData: { data: charBase64, mimeType: 'image/png' } },
           { text: "分析此角色的核心视觉特征（包括服装），用一段简短的中文描述。" }
         ]
       }
@@ -67,29 +89,10 @@ export const finalizeVisualScript = async (
     const scriptResponse = await ai.models.generateContent({
       model: 'gemini-3-pro-preview',
       contents: `角色描述: "${analyzedDesc}"，画风: "${stylePrompt}"。
-                 为以下页面生成视觉描述（英文）：
+                 为以下页面生成视觉分镜提示词（英文）：
                  ${pages.map((p, i) => `页${i+1}: ${p.text}`).join('\n')}
-                 返回 JSON。`,
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            updatedPages: {
-              type: Type.ARRAY,
-              items: {
-                type: Type.OBJECT,
-                properties: {
-                  text: { type: Type.STRING },
-                  visualPrompt: { type: Type.STRING }
-                },
-                required: ["text", "visualPrompt"]
-              }
-            },
-          },
-          required: ["updatedPages"],
-        },
-      },
+                 仅返回 JSON，包含 updatedPages: [{text, visualPrompt}]。`,
+      config: { responseMimeType: "application/json" }
     });
 
     const data = robustJsonParse(scriptResponse.text || '{}');
@@ -115,6 +118,7 @@ export const generateSceneImage = async (
   styleDesc?: string
 ): Promise<string> => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const charBase64 = await ensureBase64(characterImg);
   const stylePrompt = getStylePrompt(style, styleDesc);
   
   try {
@@ -122,18 +126,17 @@ export const generateSceneImage = async (
       model: 'gemini-2.5-flash-image',
       contents: {
         parts: [
-          { inlineData: { data: characterImg.split(',')[1], mimeType: 'image/png' } },
-          { text: `Consistent character illustration for a book. Character: ${characterDesc}. Style: ${stylePrompt}. Scene: ${visualPrompt}. High quality, 2D art, no text.` }
+          { inlineData: { data: charBase64, mimeType: 'image/png' } },
+          { text: `Consistent character illustration for a children's book. Character characteristics: ${characterDesc}. Art style: ${stylePrompt}. Current Scene: ${visualPrompt}. High quality art, center composition, no text.` }
         ]
       },
-      config: { safetySettings }
+      config: { safetySettings, imageConfig: { aspectRatio: "1:1" } }
     });
     
-    const parts = response.candidates?.[0]?.content?.parts || [];
-    for (const part of parts) {
+    for (const part of response.candidates?.[0]?.content?.parts || []) {
       if (part.inlineData) return `data:image/png;base64,${part.inlineData.data}`;
     }
-    throw new Error("模型未返回图像，请重试。");
+    throw new Error("模型未返回图像");
   } catch (error: any) {
     if (error.message?.includes("entity was not found")) throw new Error("KEY_EXPIRED");
     throw error;
@@ -149,21 +152,23 @@ export const editPageImage = async (
   styleDesc?: string
 ): Promise<string> => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const charBase64 = await ensureBase64(charImg);
+  const currentBase64 = await ensureBase64(currentImg);
   const stylePrompt = getStylePrompt(style, styleDesc);
+
   try {
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash-image',
       contents: {
         parts: [
-          { inlineData: { data: charImg.split(',')[1], mimeType: 'image/png' } },
-          { inlineData: { data: currentImg.split(',')[1], mimeType: 'image/png' } },
-          { text: `Modify the image based on: "${instruction}". Keep the character consistency: ${charDesc}. Art style: ${stylePrompt}. No text.` }
+          { inlineData: { data: charBase64, mimeType: 'image/png' } },
+          { inlineData: { data: currentBase64, mimeType: 'image/png' } },
+          { text: `Modify the second image based on this instruction: "${instruction}". Keep the main character identical to the first reference (${charDesc}). Maintain art style: ${stylePrompt}. No text.` }
         ]
       },
-      config: { safetySettings }
+      config: { safetySettings, imageConfig: { aspectRatio: "1:1" } }
     });
-    const parts = response.candidates?.[0]?.content?.parts || [];
-    for (const part of parts) {
+    for (const part of response.candidates?.[0]?.content?.parts || []) {
       if (part.inlineData) return `data:image/png;base64,${part.inlineData.data}`;
     }
     throw new Error("微调重绘失败");
@@ -177,33 +182,13 @@ export const generateStoryOutline = async (idea: string, template: StoryTemplate
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const parts: any[] = [];
   if (image) parts.push({ inlineData: { data: image.split(',')[1], mimeType: "image/png" } });
-  parts.push({ text: `基于想法 "${idea}" 创作绘本大纲（中文）。模板: ${template}。要求：1封面 + 10正文 + 1封底，共12页。返回 JSON。` });
+  parts.push({ text: `基于想法 "${idea}" 创作绘本大纲。模板: ${template}。要求：1封面 + 10正文 + 1封底，总计12页。返回 JSON，包含 title 和 pages: [{type, text}]。` });
   
   try {
     const response = await ai.models.generateContent({
       model: 'gemini-3-pro-preview',
       contents: { parts },
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            title: { type: Type.STRING },
-            pages: {
-              type: Type.ARRAY,
-              items: {
-                type: Type.OBJECT,
-                properties: {
-                  type: { type: Type.STRING, enum: ["cover", "story", "back"] },
-                  text: { type: Type.STRING },
-                },
-                required: ["type", "text"],
-              },
-            },
-          },
-          required: ["title", "pages"],
-        },
-      },
+      config: { responseMimeType: "application/json" }
     });
     const data = robustJsonParse(response.text || '{}');
     return { 
@@ -211,26 +196,26 @@ export const generateStoryOutline = async (idea: string, template: StoryTemplate
       pages: (data.pages || []).map((p: any, idx: number) => ({ ...p, id: generateId(), pageNumber: idx + 1 })) 
     };
   } catch (err: any) {
-    if (err.message?.includes("entity was not found")) throw new Error("KEY_EXPIRED");
     throw err;
   }
 };
 
 export const analyzeStyleImage = async (imageBase64: string): Promise<string> => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const base64Data = imageBase64.includes(',') ? imageBase64.split(',')[1] : imageBase64;
   try {
     const response = await ai.models.generateContent({
       model: 'gemini-3-pro-preview',
       contents: {
         parts: [
-          { inlineData: { data: imageBase64.split(',')[1], mimeType: 'image/png' } },
-          { text: "Describe the artistic style of this image in 20 English words, focusing on medium, lines, and colors." }
+          { inlineData: { data: base64Data, mimeType: 'image/png' } },
+          { text: "Analyze the art style of this image. Describe the medium, brushstrokes, color palette and overall mood in 25 words or less for a stable diffusion prompt." }
         ]
       }
     });
-    return response.text?.trim() || "Artistic illustration style";
+    return response.text?.trim() || "Hand-painted artistic style";
   } catch (e) {
-    return "Hand-painted artistic style";
+    return "Custom artistic illustration style";
   }
 };
 
@@ -239,12 +224,12 @@ export const generateCharacterOptions = async (description: string, style: Visua
   const stylePrompt = getStylePrompt(style, styleDesc);
   const parts: any[] = [];
   if (image) parts.push({ inlineData: { data: image.split(',')[1], mimeType: 'image/png' } });
-  parts.push({ text: `Character design sheet for: ${description}. Multiple poses, white background, no text. Style: ${stylePrompt}.` });
+  parts.push({ text: `Character design sheet for: ${description}. Multiple poses, white background, no text. Art style: ${stylePrompt}.` });
   
   const response = await ai.models.generateContent({ 
     model: 'gemini-2.5-flash-image', 
     contents: { parts }, 
-    config: { safetySettings } 
+    config: { safetySettings, imageConfig: { aspectRatio: "1:1" } } 
   });
   const images: string[] = [];
   for (const part of response.candidates?.[0]?.content?.parts || []) {
