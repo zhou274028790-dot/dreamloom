@@ -83,13 +83,9 @@ const App: React.FC = () => {
           setUser({ ...profile, isLoggedIn: true });
           const projects = await loadUserProjects(fbUser.uid);
           setHistory(projects);
-          setCurrentView('studio');
-        } else {
-          setCurrentView('login');
+          // 仅当已经登录且在登录页时，自动进入首页，否则保持原样
+          if (currentView === 'login') setCurrentView('library');
         }
-      } else {
-        setFirebaseUid(null);
-        setCurrentView('login');
       }
     });
     return () => unsubscribe();
@@ -105,18 +101,18 @@ const App: React.FC = () => {
   }, [bgColor]);
 
   useEffect(() => {
-    // 深色模式配色逻辑增强
-    const cardBg = isDarkBg ? 'rgba(255,255,255,0.08)' : '#FFFFFF';
-    const borderColor = isDarkBg ? 'rgba(255,255,255,0.1)' : 'rgba(234, 111, 35, 0.1)';
-    const textMain = isDarkBg ? '#F9F6F0' : '#2C211D';
-    const textSub = isDarkBg ? 'rgba(249,246,240,0.5)' : 'rgba(44,33,29,0.5)';
+    // 增强深色模式配色对比
+    const cardBg = isDarkBg ? 'rgba(255, 255, 255, 0.12)' : '#FFFFFF';
+    const borderColor = isDarkBg ? 'rgba(255, 255, 255, 0.15)' : 'rgba(234, 111, 35, 0.1)';
+    const textMain = isDarkBg ? '#FFFFFF' : '#2C211D';
+    const textSub = isDarkBg ? 'rgba(255, 255, 255, 0.6)' : 'rgba(44, 33, 29, 0.5)';
 
     document.documentElement.style.setProperty('--bg-paper', bgColor);
     document.documentElement.style.setProperty('--text-main', textMain);
     document.documentElement.style.setProperty('--text-sub', textSub);
     document.documentElement.style.setProperty('--card-bg', cardBg);
     document.documentElement.style.setProperty('--border-color', borderColor);
-    document.documentElement.style.setProperty('--card-shadow', isDarkBg ? '0 10px 40px rgba(0,0,0,0.4)' : '0 4px 20px rgba(0, 0, 0, 0.05)');
+    document.documentElement.style.setProperty('--card-shadow', isDarkBg ? '0 15px 45px rgba(0,0,0,0.5)' : '0 4px 20px rgba(0, 0, 0, 0.05)');
   }, [bgColor, isDarkBg]);
 
   const updateProject = async (updates: Partial<BookProject>) => {
@@ -154,16 +150,21 @@ const App: React.FC = () => {
   const handleLogin = async (username: string, method: string) => {
     try {
       const cred = await signInAnonymously(auth);
-      const initialCoins = 80;
-      const newUser = { username, coins: initialCoins, isFirstRecharge: true, isLoggedIn: true };
-      await syncUserProfile(cred.user.uid, newUser);
-      setUser(newUser);
+      const profile = await getUserProfile(cred.user.uid);
+      if (profile) {
+        setUser({ ...profile, isLoggedIn: true });
+      } else {
+        const newUser = { username, coins: 80, isFirstRecharge: true, isLoggedIn: true };
+        await syncUserProfile(cred.user.uid, newUser);
+        setUser(newUser);
+        setShowReward(true);
+      }
       setFirebaseUid(cred.user.uid);
-      setShowReward(true);
-      setCurrentView('studio');
+      const projects = await loadUserProjects(cred.user.uid);
+      setHistory(projects);
+      setCurrentView('library');
     } catch (e: any) {
-      console.error("Login Error:", e);
-      alert(`登录失败: 请确保 Firebase 配置正确。`);
+      alert(`登录失败: ${e.message}`);
     }
   };
 
@@ -176,7 +177,7 @@ const App: React.FC = () => {
            </div>
            <div className="space-y-2">
               <h2 className="text-2xl font-bold font-header">关联密钥以开启创作</h2>
-              <p className="opacity-60 text-sm font-medium">监测到您当前没有激活 API Key。如果您在 Vercel 设置了变量，请确保名称为 API_KEY。或者点击下方按钮手动选择。</p>
+              <p className="opacity-60 text-sm font-medium">监测到您当前没有激活 API Key。请点击下方按钮手动选择。</p>
            </div>
            <button onClick={handleOpenKeySelector} className="btn-candy w-full py-4 text-white rounded-2xl font-bold shadow-xl">
              <i className="fas fa-external-link-alt mr-2"></i> 选择 API 密钥
@@ -188,10 +189,10 @@ const App: React.FC = () => {
 
   return (
     <div className={`min-h-screen flex flex-col bg-[var(--bg-paper)] transition-all duration-500`} style={{ color: 'var(--text-main)' }}>
-      {user.isLoggedIn && (
+      {user.isLoggedIn && currentView !== 'login' && (
         <header className={`bg-[var(--card-bg)] backdrop-blur-2xl border-b border-[var(--border-color)] py-3 px-4 md:px-6 sticky top-0 z-[60] shadow-sm`}>
            <div className="max-w-7xl mx-auto flex justify-between items-center relative">
-             <div className="flex items-center gap-3 cursor-pointer" onClick={() => setCurrentView('studio')}>
+             <div className="flex items-center gap-3 cursor-pointer" onClick={() => setCurrentView('library')}>
                 <div className="w-10 h-10 bg-[#EA6F23] rounded-2xl flex items-center justify-center shadow-lg flex-shrink-0 transform rotate-3">
                   <i className="fas fa-magic text-white text-sm"></i>
                 </div>

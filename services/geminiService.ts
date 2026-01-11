@@ -5,25 +5,50 @@ import { StoryTemplate, StoryPage, VisualStyle } from "../types";
 const generateId = () => Math.random().toString(36).substr(2, 9);
 
 /**
- * 助手：确保数据是 Base64。如果是 URL，则抓取并转换。
+ * 健壮的图片预处理：
+ * 1. 处理 URL 或 Base64。
+ * 2. 压缩图片大小（Gemini inlineData 对载荷有严格限制）。
  */
-const ensureBase64 = async (imgData: string): Promise<string> => {
-  if (imgData.startsWith('data:')) {
+const prepareImageForAi = async (imgData: string): Promise<string> => {
+  if (!imgData) throw new Error("缺少图片数据");
+
+  // 如果已经是合法的 base64 且体积较小，直接返回
+  if (imgData.startsWith('data:') && imgData.length < 500000) {
     return imgData.split(',')[1];
   }
-  try {
-    const resp = await fetch(imgData);
-    const blob = await resp.blob();
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onloadend = () => resolve((reader.result as string).split(',')[1]);
-      reader.onerror = reject;
-      reader.readAsDataURL(blob);
-    });
-  } catch (e) {
-    console.error("Failed to convert image URL to base64:", e);
-    throw new Error("无法处理参考图片数据，请尝试重新上传。");
-  }
+
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = "Anonymous";
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      const MAX_SIZE = 768; // 限制尺寸以减小体积
+      let width = img.width;
+      let height = img.height;
+
+      if (width > height) {
+        if (width > MAX_SIZE) {
+          height *= MAX_SIZE / width;
+          width = MAX_SIZE;
+        }
+      } else {
+        if (height > MAX_SIZE) {
+          width *= MAX_SIZE / height;
+          height = MAX_SIZE;
+        }
+      }
+
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      ctx?.drawImage(img, 0, 0, width, height);
+      // 降低质量以确保不超出 API 限制
+      const compressedBase64 = canvas.toDataURL('image/jpeg', 0.7);
+      resolve(compressedBase64.split(',')[1]);
+    };
+    img.onerror = () => reject(new Error("图片加载失败，请尝试重新上传"));
+    img.src = imgData;
+  });
 };
 
 const safetySettings = [
@@ -33,27 +58,39 @@ const safetySettings = [
   { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE },
 ];
 
+const handleAiError = (error: any) => {
+  console.error("Gemini API Error:", error);
+  const msg = error.message || "";
+  if (msg.includes("RESOURCE_EXHAUSTED") || msg.includes("429")) {
+    throw new Error("API 调用配额已达上限，请稍后再试或更换 API Key。");
+  }
+  if (msg.includes("INVALID_ARGUMENT") || msg.includes("400")) {
+    throw new Error("图片数据过大或格式不正确，已尝试自动修复，请重试。");
+  }
+  throw error;
+};
+
 const robustJsonParse = (text: string) => {
   const clean = text.replace(/```json/g, '').replace(/```/g, '').trim();
   try {
     return JSON.parse(clean);
   } catch (e) {
-    throw new Error("AI 返回数据格式错误");
+    throw new Error("AI 返回数据解析失败");
   }
 };
 
 const getStylePrompt = (style: VisualStyle, customDesc?: string): string => {
   if (style === VisualStyle.CUSTOM && customDesc) return customDesc;
   switch (style) {
-    case VisualStyle.WATERCOLOR: return "Soft watercolor illustration, storybook style, delicate edges, vibrant colors.";
-    case VisualStyle.OIL_PAINTING: return "Classic oil painting style, rich textures, artistic lighting.";
-    case VisualStyle.VINTAGE: return "1950s retro storybook style, muted nostalgic tones, hand-drawn.";
-    case VisualStyle.FLAT_ART: return "Modern flat vector illustration, clean lines, organic textures.";
-    case VisualStyle.GHIBLI: return "Studio Ghibli anime style, lush environments, cinematic lighting.";
-    case VisualStyle.PIXAR_3D: return "3D CGI animation style, Disney Pixar look, vibrant and detailed.";
-    case VisualStyle.CRAYON: return "Child-like crayon drawing, thick waxy texture, bright colors.";
-    case VisualStyle.PAPER_CUT: return "Layered paper-cut art, distinct shadows, handcrafted collage style.";
-    default: return `Style: ${style}.`;
+    case VisualStyle.WATERCOLOR: return "Soft watercolor illustration, storybook style, high quality.";
+    case VisualStyle.OIL_PAINTING: return "Classic oil painting, rich texture, cinematic lighting.";
+    case VisualStyle.VINTAGE: return "Retro 1950s storybook style, muted nostalgic tones.";
+    case VisualStyle.FLAT_ART: return "Modern vector flat art, organic textures, professional.";
+    case VisualStyle.GHIBLI: return "Studio Ghibli anime style, lush landscapes, soft lighting.";
+    case VisualStyle.PIXAR_3D: return "Disney 3D CGI style, vibrant lighting, subsurface scattering.";
+    case VisualStyle.CRAYON: return "Child-like crayon strokes, waxy texture, bright colors.";
+    case VisualStyle.PAPER_CUT: return "Layered paper-cut art, depth shadows, handcrafted look.";
+    default: return style;
   }
 };
 
@@ -65,7 +102,7 @@ export const finalizeVisualScript = async (
   styleRefImage?: string
 ): Promise<{ pages: StoryPage[], analyzedCharacterDesc: string, analyzedStyleDesc?: string }> => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-  const charBase64 = await ensureBase64(characterSeedImage);
+  const charBase64 = await prepareImageForAi(characterSeedImage);
   
   let analyzedStyleDesc = "";
   if (style === VisualStyle.CUSTOM && styleRefImage) {
@@ -79,8 +116,8 @@ export const finalizeVisualScript = async (
       model: 'gemini-3-pro-preview',
       contents: {
         parts: [
-          { inlineData: { data: charBase64, mimeType: 'image/png' } },
-          { text: "分析此角色的核心视觉特征（包括服装），用一段简短的中文描述。" }
+          { inlineData: { data: charBase64, mimeType: 'image/jpeg' } },
+          { text: "简要描述此角色的外貌特征（中文）。" }
         ]
       }
     });
@@ -88,10 +125,7 @@ export const finalizeVisualScript = async (
 
     const scriptResponse = await ai.models.generateContent({
       model: 'gemini-3-pro-preview',
-      contents: `角色描述: "${analyzedDesc}"，画风: "${stylePrompt}"。
-                 为以下页面生成视觉分镜提示词（英文）：
-                 ${pages.map((p, i) => `页${i+1}: ${p.text}`).join('\n')}
-                 仅返回 JSON，包含 updatedPages: [{text, visualPrompt}]。`,
+      contents: `角色: ${analyzedDesc}, 画风: ${stylePrompt}. 生成以下页面的英文生图提示词: ${pages.map(p => p.text).join('|')}. 返回 JSON: {updatedPages: [{text, visualPrompt}]}`,
       config: { responseMimeType: "application/json" }
     });
 
@@ -104,8 +138,8 @@ export const finalizeVisualScript = async (
     })) as StoryPage[];
 
     return { pages: finalPages, analyzedCharacterDesc: analyzedDesc, analyzedStyleDesc };
-  } catch (error: any) {
-    throw new Error(error.message || "分镜脚本生成失败");
+  } catch (error) {
+    return handleAiError(error);
   }
 };
 
@@ -118,7 +152,7 @@ export const generateSceneImage = async (
   styleDesc?: string
 ): Promise<string> => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-  const charBase64 = await ensureBase64(characterImg);
+  const charBase64 = await prepareImageForAi(characterImg);
   const stylePrompt = getStylePrompt(style, styleDesc);
   
   try {
@@ -126,20 +160,19 @@ export const generateSceneImage = async (
       model: 'gemini-2.5-flash-image',
       contents: {
         parts: [
-          { inlineData: { data: charBase64, mimeType: 'image/png' } },
-          { text: `Consistent character illustration for a children's book. Character characteristics: ${characterDesc}. Art style: ${stylePrompt}. Current Scene: ${visualPrompt}. High quality art, center composition, no text.` }
+          { inlineData: { data: charBase64, mimeType: 'image/jpeg' } },
+          { text: `Picture book scene. Character: ${characterDesc}. Style: ${stylePrompt}. Action: ${visualPrompt}. 2D illustration, no text.` }
         ]
       },
-      config: { safetySettings, imageConfig: { aspectRatio: "1:1" } }
+      config: { safetySettings }
     });
     
     for (const part of response.candidates?.[0]?.content?.parts || []) {
-      if (part.inlineData) return `data:image/png;base64,${part.inlineData.data}`;
+      if (part.inlineData) return `data:image/jpeg;base64,${part.inlineData.data}`;
     }
-    throw new Error("模型未返回图像");
-  } catch (error: any) {
-    if (error.message?.includes("entity was not found")) throw new Error("KEY_EXPIRED");
-    throw error;
+    throw new Error("AI 未能生成图像");
+  } catch (error) {
+    return handleAiError(error);
   }
 };
 
@@ -152,8 +185,8 @@ export const editPageImage = async (
   styleDesc?: string
 ): Promise<string> => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-  const charBase64 = await ensureBase64(charImg);
-  const currentBase64 = await ensureBase64(currentImg);
+  const charBase64 = await prepareImageForAi(charImg);
+  const currentBase64 = await prepareImageForAi(currentImg);
   const stylePrompt = getStylePrompt(style, styleDesc);
 
   try {
@@ -161,28 +194,30 @@ export const editPageImage = async (
       model: 'gemini-2.5-flash-image',
       contents: {
         parts: [
-          { inlineData: { data: charBase64, mimeType: 'image/png' } },
-          { inlineData: { data: currentBase64, mimeType: 'image/png' } },
-          { text: `Modify the second image based on this instruction: "${instruction}". Keep the main character identical to the first reference (${charDesc}). Maintain art style: ${stylePrompt}. No text.` }
+          { inlineData: { data: charBase64, mimeType: 'image/jpeg' } },
+          { inlineData: { data: currentBase64, mimeType: 'image/jpeg' } },
+          { text: `Modify the second image based on: ${instruction}. Keep character as in first image (${charDesc}). Style: ${stylePrompt}.` }
         ]
       },
-      config: { safetySettings, imageConfig: { aspectRatio: "1:1" } }
+      config: { safetySettings }
     });
     for (const part of response.candidates?.[0]?.content?.parts || []) {
-      if (part.inlineData) return `data:image/png;base64,${part.inlineData.data}`;
+      if (part.inlineData) return `data:image/jpeg;base64,${part.inlineData.data}`;
     }
-    throw new Error("微调重绘失败");
-  } catch (error: any) {
-    if (error.message?.includes("entity was not found")) throw new Error("KEY_EXPIRED");
-    throw error;
+    throw new Error("微调失败");
+  } catch (error) {
+    return handleAiError(error);
   }
 };
 
 export const generateStoryOutline = async (idea: string, template: StoryTemplate, image?: string): Promise<{ title: string; pages: Partial<StoryPage>[] }> => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const parts: any[] = [];
-  if (image) parts.push({ inlineData: { data: image.split(',')[1], mimeType: "image/png" } });
-  parts.push({ text: `基于想法 "${idea}" 创作绘本大纲。模板: ${template}。要求：1封面 + 10正文 + 1封底，总计12页。返回 JSON，包含 title 和 pages: [{type, text}]。` });
+  if (image) {
+    const imgBase64 = await prepareImageForAi(image);
+    parts.push({ inlineData: { data: imgBase64, mimeType: "image/jpeg" } });
+  }
+  parts.push({ text: `基于 "${idea}" 创作12页绘本大纲（1封面,10正文,1封底）。返回 JSON: {title, pages: [{type, text}]}` });
   
   try {
     const response = await ai.models.generateContent({
@@ -191,31 +226,28 @@ export const generateStoryOutline = async (idea: string, template: StoryTemplate
       config: { responseMimeType: "application/json" }
     });
     const data = robustJsonParse(response.text || '{}');
-    return { 
-      title: data.title || "未命名故事", 
-      pages: (data.pages || []).map((p: any, idx: number) => ({ ...p, id: generateId(), pageNumber: idx + 1 })) 
-    };
-  } catch (err: any) {
-    throw err;
+    return { title: data.title, pages: (data.pages || []).map((p: any, idx: number) => ({ ...p, id: generateId(), pageNumber: idx + 1 })) };
+  } catch (err) {
+    return handleAiError(err);
   }
 };
 
 export const analyzeStyleImage = async (imageBase64: string): Promise<string> => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-  const base64Data = imageBase64.includes(',') ? imageBase64.split(',')[1] : imageBase64;
+  const base64Data = await prepareImageForAi(imageBase64);
   try {
     const response = await ai.models.generateContent({
       model: 'gemini-3-pro-preview',
       contents: {
         parts: [
-          { inlineData: { data: base64Data, mimeType: 'image/png' } },
-          { text: "Analyze the art style of this image. Describe the medium, brushstrokes, color palette and overall mood in 25 words or less for a stable diffusion prompt." }
+          { inlineData: { data: base64Data, mimeType: 'image/jpeg' } },
+          { text: "Describe the art style of this image for a generator prompt (English, 20 words)." }
         ]
       }
     });
-    return response.text?.trim() || "Hand-painted artistic style";
+    return response.text?.trim() || "Artistic illustration";
   } catch (e) {
-    return "Custom artistic illustration style";
+    return "Custom art style";
   }
 };
 
@@ -223,18 +255,24 @@ export const generateCharacterOptions = async (description: string, style: Visua
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const stylePrompt = getStylePrompt(style, styleDesc);
   const parts: any[] = [];
-  if (image) parts.push({ inlineData: { data: image.split(',')[1], mimeType: 'image/png' } });
-  parts.push({ text: `Character design sheet for: ${description}. Multiple poses, white background, no text. Art style: ${stylePrompt}.` });
-  
-  const response = await ai.models.generateContent({ 
-    model: 'gemini-2.5-flash-image', 
-    contents: { parts }, 
-    config: { safetySettings, imageConfig: { aspectRatio: "1:1" } } 
-  });
-  const images: string[] = [];
-  for (const part of response.candidates?.[0]?.content?.parts || []) {
-    if (part.inlineData) images.push(`data:image/png;base64,${part.inlineData.data}`);
+  if (image) {
+    const imgBase64 = await prepareImageForAi(image);
+    parts.push({ inlineData: { data: imgBase64, mimeType: 'image/jpeg' } });
   }
-  if (images.length === 0) throw new Error("角色生成失败");
-  return images;
+  parts.push({ text: `Character sheet for: ${description}. Multiple poses, white background. Style: ${stylePrompt}.` });
+  
+  try {
+    const response = await ai.models.generateContent({ 
+      model: 'gemini-2.5-flash-image', 
+      contents: { parts }, 
+      config: { safetySettings } 
+    });
+    const images: string[] = [];
+    for (const part of response.candidates?.[0]?.content?.parts || []) {
+      if (part.inlineData) images.push(`data:image/jpeg;base64,${part.inlineData.data}`);
+    }
+    return images;
+  } catch (err) {
+    return handleAiError(err);
+  }
 };

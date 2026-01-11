@@ -3,131 +3,119 @@ import React, { useState } from 'react';
 import { Language } from '../types';
 
 interface Props {
-  onLogin: (name: string, method: 'wechat' | 'phone' | 'guest') => void;
+  onLogin: (name: string, method: 'email' | 'phone' | 'wechat' | 'guest') => void;
   lang: Language;
 }
 
 const Login: React.FC<Props> = ({ onLogin, lang }) => {
-  const [method, setMethod] = useState<'wechat' | 'phone' | 'guest'>('wechat');
-  const [phone, setPhone] = useState('');
-  const [guestName, setGuestName] = useState('');
+  const [method, setMethod] = useState<'email' | 'phone' | 'wechat' | 'guest'>('email');
+  const [inputValue, setInputValue] = useState('');
+  const [password, setPassword] = useState('');
 
   const t = {
     zh: { 
       welcome: 'DreamLoom AI 绘本', 
-      sub: '让每个孩子的梦想，都能被翻阅', 
-      wechatBtn: '微信一键登录',
-      phoneBtn: '手机验证码登录',
-      guestBtn: '游客快速开启',
+      sub: '记录每一个天马行空的梦想', 
+      primaryBtn: '进入创作工坊',
+      placeholderEmail: '请输入邮箱地址',
       placeholderPhone: '请输入手机号',
-      placeholderGuest: '给你的工作室起个名',
-      agree: '登录即代表同意《用户协议》与《隐私政策》',
-      identity: '官方合作'
+      placeholderGuest: '起一个工作室代号',
+      wechat: '微信一键登录',
+      guest: '游客快速试用',
+      agree: '登录即代表同意《用户协议》与《隐私政策》'
     },
     en: { 
       welcome: 'DreamLoom AI', 
-      sub: 'Turn every dream into a readable book', 
-      wechatBtn: 'Login with WeChat',
-      phoneBtn: 'Login with Phone',
-      guestBtn: 'Quick Start',
+      sub: 'Visualize your wildest dreams', 
+      primaryBtn: 'Start Creating',
+      placeholderEmail: 'Enter your email',
       placeholderPhone: 'Enter phone number',
-      placeholderGuest: 'Enter your studio name',
-      agree: 'By logging in, you agree to our Terms',
-      identity: 'Official Partner'
+      placeholderGuest: 'Studio nickname',
+      wechat: 'WeChat Login',
+      guest: 'Guest Mode',
+      agree: 'By continuing, you agree to our Terms'
     }
   }[lang];
 
-  const handleLogin = () => {
-    const randomNum = Math.floor(Math.random() * 900 + 100).toString();
-    const defaultName = `造梦师${randomNum}`;
-    const finalName = method === 'guest' ? (guestName || defaultName) : (phone ? `用户${phone.slice(-4)}` : defaultName);
+  const handleLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (method !== 'guest' && !inputValue) return;
+    const finalName = method === 'guest' ? (inputValue || `造梦师${Math.floor(Math.random()*900+100)}`) : inputValue;
     onLogin(finalName, method);
   };
 
   return (
-    <div className="min-h-screen bg-[#FDF6F0] flex flex-col items-center justify-center p-6 relative overflow-hidden">
-      {/* Decorative background blobs */}
-      <div className="absolute top-[-10%] left-[-10%] w-[400px] h-[400px] bg-orange-200/20 rounded-full blur-[100px]"></div>
-      <div className="absolute bottom-[-10%] right-[-10%] w-[500px] h-[500px] bg-green-100/30 rounded-full blur-[120px]"></div>
+    <div className="min-h-screen bg-[#FDF6F0] flex flex-col items-center justify-center p-6 relative">
+      <div className="absolute top-0 inset-x-0 h-[60vh] bg-gradient-to-b from-orange-50 to-transparent"></div>
+      
+      <div className="max-w-[420px] w-full bg-white p-10 md:p-12 rounded-[3.5rem] shadow-2xl border border-white flex flex-col items-center text-center space-y-10 animate-in zoom-in-95 duration-500 relative z-10">
+        <div className="w-24 h-24 bg-[#EA6F23] rounded-[2.5rem] flex items-center justify-center shadow-xl rotate-3 transform transition-transform hover:rotate-0">
+           <i className="fas fa-star text-white text-4xl"></i>
+           <div className="absolute -top-2 -right-2 bg-white text-[#EA6F23] text-[9px] font-black px-2 py-1 rounded-full border shadow-sm">PRO</div>
+        </div>
 
-      <div className="max-w-[440px] w-full bg-white px-8 py-16 rounded-[4rem] shadow-[0_30px_60px_-15px_rgba(0,0,0,0.05)] border border-gray-50 flex flex-col items-center text-center space-y-10 animate-in zoom-in-95 duration-700 relative z-10">
-        
-        {/* Brand Logo Section */}
-        <div className="relative">
-           <div className="w-28 h-28 bg-[#EA6F23] rounded-[2.5rem] flex items-center justify-center shadow-[0_15px_30px_-5px_rgba(234,111,35,0.3)] transform transition-transform hover:scale-105">
-              <svg viewBox="0 0 100 100" className="w-16 h-16">
-                <path d="M50 5 L63 40 L98 40 L70 60 L80 95 L50 75 L20 95 L30 60 L2 40 L37 40 Z" fill="#1a1a1a" />
-                <circle cx="35" cy="50" r="8" fill="#f97316" stroke="#1a1a1a" strokeWidth="2" />
-                <circle cx="65" cy="50" r="8" fill="#f97316" stroke="#1a1a1a" strokeWidth="2" />
-              </svg>
-              <div className="absolute -top-1 -right-1 bg-white text-[#EA6F23] text-[9px] font-black px-2 py-0.5 rounded-full shadow-sm border border-orange-50">PRO</div>
+        <div className="space-y-2">
+          <h1 className="text-3xl font-bold font-header tracking-tight">{t.welcome}</h1>
+          <p className="text-gray-400 text-sm font-medium">{t.sub}</p>
+        </div>
+
+        <form onSubmit={handleLogin} className="w-full space-y-6">
+          <div className="flex gap-4 border-b border-gray-100 pb-2">
+            <button type="button" onClick={() => setMethod('email')} className={`text-sm font-bold pb-2 transition-all ${method === 'email' ? 'text-[#EA6F23] border-b-2 border-[#EA6F23]' : 'text-gray-300'}`}>邮箱</button>
+            <button type="button" onClick={() => setMethod('phone')} className={`text-sm font-bold pb-2 transition-all ${method === 'phone' ? 'text-[#EA6F23] border-b-2 border-[#EA6F23]' : 'text-gray-300'}`}>手机</button>
+          </div>
+
+          <div className="space-y-3">
+             <div className="relative">
+                <i className={`fas ${method === 'email' ? 'fa-envelope' : 'fa-mobile-alt'} absolute left-5 top-1/2 -translate-y-1/2 text-gray-300`}></i>
+                <input 
+                  type={method === 'email' ? 'email' : 'tel'} 
+                  value={inputValue}
+                  onChange={(e) => setInputValue(e.target.value)}
+                  placeholder={method === 'email' ? t.placeholderEmail : t.placeholderPhone}
+                  className="w-full pl-12 pr-6 py-4 bg-gray-50 rounded-2xl border border-transparent focus:bg-white focus:border-[#EA6F23]/20 focus:ring-4 focus:ring-[#EA6F23]/5 outline-none transition-all font-bold text-sm"
+                  required={method !== 'guest'}
+                />
+             </div>
+             <div className="relative">
+                <i className="fas fa-lock absolute left-5 top-1/2 -translate-y-1/2 text-gray-300"></i>
+                <input 
+                  type="password" 
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="请输入密码"
+                  className="w-full pl-12 pr-6 py-4 bg-gray-50 rounded-2xl border border-transparent focus:bg-white focus:border-[#EA6F23]/20 focus:ring-4 focus:ring-[#EA6F23]/5 outline-none transition-all font-bold text-sm"
+                  required={method !== 'guest'}
+                />
+             </div>
+          </div>
+
+          <button 
+            type="submit"
+            className="btn-candy w-full py-5 text-white rounded-[2rem] font-bold text-lg shadow-xl hover:-translate-y-1 active:scale-95 transition-all"
+          >
+            {t.primaryBtn}
+          </button>
+        </form>
+
+        <div className="w-full space-y-6">
+           <div className="flex items-center gap-4 text-gray-200">
+              <div className="flex-1 h-[1px] bg-current"></div>
+              <span className="text-[10px] font-black uppercase tracking-widest">或其他方式</span>
+              <div className="flex-1 h-[1px] bg-current"></div>
+           </div>
+
+           <div className="grid grid-cols-2 gap-4">
+              <button onClick={() => onLogin('微信用户', 'wechat')} className="flex items-center justify-center gap-2 py-4 bg-green-50 text-green-600 rounded-2xl font-bold text-xs hover:bg-green-100 transition-all">
+                <i className="fab fa-weixin text-lg"></i> {t.wechat}
+              </button>
+              <button onClick={() => setMethod('guest')} className="flex items-center justify-center gap-2 py-4 bg-gray-50 text-gray-500 rounded-2xl font-bold text-xs hover:bg-gray-100 transition-all">
+                <i className="fas fa-user-secret text-lg"></i> {t.guest}
+              </button>
            </div>
         </div>
 
-        {/* Text Header */}
-        <div className="space-y-3">
-          <h1 className="text-3xl font-bold text-[#1A1A1A] tracking-tight">{t.welcome}</h1>
-          <p className="text-[#A0A0A0] text-sm font-medium">{t.sub}</p>
-        </div>
-
-        {/* Primary Action */}
-        <div className="w-full space-y-6">
-          {method === 'wechat' ? (
-            <button 
-              onClick={handleLogin}
-              className="w-full py-5 bg-[#07C160] text-white rounded-[2rem] font-bold text-lg shadow-[0_10px_20px_-5px_rgba(7,193,96,0.3)] hover:brightness-105 active:scale-[0.98] transition-all flex items-center justify-center gap-3"
-            >
-              <i className="fab fa-weixin text-2xl"></i>
-              {t.wechatBtn}
-            </button>
-          ) : method === 'phone' ? (
-            <div className="space-y-3 animate-in slide-in-from-bottom-2">
-               <input 
-                  type="tel" 
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  placeholder={t.placeholderPhone}
-                  className="w-full px-8 py-5 bg-[#F8F8F8] border-none rounded-[2rem] focus:ring-2 focus:ring-[#EA6F23]/20 outline-none transition-all text-sm font-bold"
-                />
-                <button 
-                  onClick={handleLogin}
-                  disabled={!phone}
-                  className="w-full py-5 bg-[#EA6F23] text-white rounded-[2rem] font-bold text-lg shadow-lg disabled:bg-gray-200 transition-all"
-                >
-                  确定登录
-                </button>
-            </div>
-          ) : (
-            <div className="space-y-3 animate-in slide-in-from-bottom-2">
-               <input 
-                  type="text" 
-                  value={guestName}
-                  onChange={(e) => setGuestName(e.target.value)}
-                  placeholder={t.placeholderGuest}
-                  className="w-full px-8 py-5 bg-[#F8F8F8] border-none rounded-[2rem] focus:ring-2 focus:ring-[#EA6F23]/20 outline-none transition-all text-sm font-bold text-center"
-                />
-                <button 
-                  onClick={handleLogin}
-                  className="w-full py-5 bg-[#1a1a1a] text-white rounded-[2rem] font-bold text-lg shadow-lg hover:bg-black transition-all"
-                >
-                  {t.guestBtn}
-                </button>
-            </div>
-          )}
-
-          {/* Method Switcher */}
-          <div className="flex justify-center gap-6">
-            <button onClick={() => setMethod('wechat')} className={`text-sm font-bold transition-colors ${method === 'wechat' ? 'text-[#EA6F23]' : 'text-[#D0D0D0]'}`}>微信</button>
-            <button onClick={() => setMethod('phone')} className={`text-sm font-bold transition-colors ${method === 'phone' ? 'text-[#EA6F23]' : 'text-[#D0D0D0]'}`}>手机</button>
-            <button onClick={() => setMethod('guest')} className={`text-sm font-bold transition-colors ${method === 'guest' ? 'text-[#EA6F23]' : 'text-[#D0D0D0]'}`}>游客</button>
-          </div>
-        </div>
-
-        {/* Footer */}
-        <div className="space-y-6 pt-4">
-          <p className="text-[11px] text-[#C0C0C0] font-medium leading-relaxed px-4">{t.agree}</p>
-          <div className="text-[10px] text-[#E0E0E0] font-black uppercase tracking-[0.3em]">{t.identity}</div>
-        </div>
+        <p className="text-[10px] text-gray-300 font-medium px-4">{t.agree}</p>
       </div>
     </div>
   );
