@@ -1,0 +1,8 @@
+{
+  "name": "Copy of DreamLoom: AI Picture Book Studio",
+  "description": "An AI-powered workflow for creating consistent, high-quality children's picture books from a single spark of inspiration.",
+  "requestFramePermissions": [
+    "microphone",
+    "camera"
+  ]
+}
