@@ -71,14 +71,14 @@ const BookLibrary: React.FC<Props> = ({ history, onSelect, onDelete, onNewProjec
                      <div className="w-20 h-20 bg-white/80 rounded-full flex items-center justify-center shadow-sm mb-4">
                         <i className="fas fa-star text-[#EA6F23] text-3xl animate-pulse"></i>
                      </div>
-                     <p className="text-[#EA6F23] font-bold text-sm tracking-widest opacity-40">正在编织梦境...</p>
+                     <p className="text-[#EA6F23] font-bold text-sm tracking-widest opacity-40 text-center px-4">正在编织梦境...</p>
                   </div>
                 )}
                 
-                {/* 删除按钮 - 位于原右上角草稿标签位置 */}
+                {/* 删除按钮 - 已移至封面右上角 */}
                 <button 
                    onClick={(e) => { e.stopPropagation(); if(confirm("确定要删除这本绘本吗？")) onDelete(book.id); }}
-                   className="absolute top-5 right-5 w-10 h-10 bg-white/30 backdrop-blur-md text-red-500 rounded-full flex items-center justify-center shadow-xl border border-white/20 z-20 hover:bg-red-500 hover:text-white transition-all transform hover:scale-110 active:scale-90"
+                   className="absolute top-5 right-5 w-10 h-10 bg-white/20 backdrop-blur-md text-white/60 rounded-full flex items-center justify-center shadow-xl border border-white/10 z-20 hover:bg-red-500 hover:text-white hover:scale-110 transition-all active:scale-90"
                    title="删除作品"
                 >
                    <i className="fas fa-trash-alt text-sm"></i>
@@ -97,7 +97,7 @@ const BookLibrary: React.FC<Props> = ({ history, onSelect, onDelete, onNewProjec
                   </div>
                 </div>
 
-                {/* 底部按钮重构为三等分对称布局 */}
+                {/* 底部按钮重构：编辑 / 阅读 / 订购 三足鼎立 */}
                 <div className="grid grid-cols-3 gap-3">
                   {/* 编辑 */}
                   <button 
@@ -105,7 +105,7 @@ const BookLibrary: React.FC<Props> = ({ history, onSelect, onDelete, onNewProjec
                     className="py-4 bg-gray-50 text-gray-400 rounded-2xl hover:bg-gray-100 transition-all flex flex-col items-center justify-center gap-1.5 border border-gray-100"
                   >
                     <i className="fas fa-pen text-xs"></i>
-                    <span className="text-[10px] font-black tracking-widest">编辑</span>
+                    <span className="text-[10px] font-black tracking-widest uppercase">编辑</span>
                   </button>
 
                   {/* 阅读 */}
@@ -114,7 +114,7 @@ const BookLibrary: React.FC<Props> = ({ history, onSelect, onDelete, onNewProjec
                     className="py-4 bg-[#EA6F23] text-white rounded-2xl shadow-lg hover:bg-[#EA6F23]/90 hover:-translate-y-0.5 transition-all flex flex-col items-center justify-center gap-1.5"
                   >
                     <i className="fas fa-eye text-xs"></i>
-                    <span className="text-[10px] font-black tracking-widest">阅读</span>
+                    <span className="text-[10px] font-black tracking-widest uppercase">阅读</span>
                   </button>
 
                   {/* 订购 */}
@@ -123,7 +123,7 @@ const BookLibrary: React.FC<Props> = ({ history, onSelect, onDelete, onNewProjec
                     className="py-4 bg-yellow-400 text-yellow-900 rounded-2xl shadow-xl border-2 border-yellow-200 hover:bg-yellow-300 hover:-translate-y-0.5 transition-all flex flex-col items-center justify-center gap-1.5"
                   >
                     <i className="fas fa-gift text-xs"></i>
-                    <span className="text-[10px] font-black tracking-widest">订购</span>
+                    <span className="text-[10px] font-black tracking-widest uppercase">订购</span>
                   </button>
                 </div>
               </div>
