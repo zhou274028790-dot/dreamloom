@@ -11,6 +11,19 @@ const safetySettings = [
   { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE },
 ];
 
+/**
+ * 健壮的 JSON 解析器，移除 Markdown 标记
+ */
+const robustJsonParse = (text: string) => {
+  const clean = text.replace(/```json/g, '').replace(/```/g, '').trim();
+  try {
+    return JSON.parse(clean);
+  } catch (e) {
+    console.error("JSON Parse Error. Raw text:", text);
+    throw new Error("Failed to parse JSON from AI response.");
+  }
+};
+
 const getStylePrompt = (style: VisualStyle, customDesc?: string): string => {
   if (style === VisualStyle.CUSTOM && customDesc) return customDesc;
   switch (style) {
@@ -23,31 +36,6 @@ const getStylePrompt = (style: VisualStyle, customDesc?: string): string => {
     case VisualStyle.CRAYON: return "Wax crayon drawing, naive child-like strokes, thick waxy texture.";
     case VisualStyle.PAPER_CUT: return "Layered paper-cut art, distinct shadow depths, handcrafted paper texture.";
     default: return `Style: ${style}.`;
-  }
-};
-
-/**
- * 风格分析引擎：将图片转换为绘图提示词
- */
-const analyzeStyleImage = async (imageBase64: string): Promise<string> => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-  try {
-    const response = await ai.models.generateContent({
-      model: 'gemini-3-pro-preview',
-      contents: {
-        parts: [
-          { inlineData: { data: imageBase64.split(',')[1], mimeType: 'image/png' } },
-          { text: `You are an art critic and professional prompt engineer. 
-                  Analyze the artistic style of this image. 
-                  Focus on: medium (e.g., charcoal, acrylic), brushstroke texture, lighting mood, and color palette.
-                  Output a concise, technical English prompt description (max 50 words) that can be used to replicate this specific art style in another image. 
-                  Do not describe the content of the image, only the style.` }
-        ]
-      }
-    });
-    return response.text?.trim() || "Unique artistic style";
-  } catch (e) {
-    return "Hand-painted artistic style";
   }
 };
 
@@ -71,28 +59,26 @@ export const finalizeVisualScript = async (
   const stylePrompt = getStylePrompt(style, analyzedStyleDesc);
   
   try {
-    // 步骤 1: 视觉特征深度提取
     const analysisResponse = await ai.models.generateContent({
       model: 'gemini-3-pro-preview',
       contents: {
         parts: [
           { inlineData: { data: characterSeedImage.split(',')[1], mimeType: 'image/png' } },
-          { text: `你是一名角色设计师。请仔细观察这张角色设计图，提取出其详尽的物理特征描述。
+          { text: `你是一名角色设计师。请仔细观察这张角色设计图，提取出其详尽的物理特征描述（包括服饰细节）。
                   输出要求：一段简洁但精准的中文特征描述。` }
         ]
       }
     });
     const analyzedDesc = analysisResponse.text?.trim() || characterDesc;
 
-    // 步骤 2 & 3: 故事文本修正与视觉指令生成
     const scriptResponse = await ai.models.generateContent({
       model: 'gemini-3-pro-preview',
       contents: `你是一名绘本导演。
                  【角色最终设定描述】 "${analyzedDesc}"
                  【画风设定】 "${stylePrompt}"
-                 【任务】 修正每一页的故事文字并生成视觉分镜，确保与上述设定完全统一。
+                 【任务】 修正每一页的故事文字并生成视觉分镜提示词（英文），确保与上述设定完全统一。
                  【待对齐页列表】 ${pages.map((p, i) => `页${i+1}: ${p.text}`).join('\n')}
-                 请返回包含修正文本和视觉提示词的 JSON 数组。`,
+                 请返回 JSON。`,
       config: {
         responseMimeType: "application/json",
         responseSchema: {
@@ -115,7 +101,7 @@ export const finalizeVisualScript = async (
       },
     });
 
-    const data = JSON.parse(scriptResponse.text?.trim() || '{}');
+    const data = robustJsonParse(scriptResponse.text || '{}');
     const updatedData = data.updatedPages || [];
     
     const finalPages = pages.map((p, idx) => ({
@@ -216,12 +202,13 @@ export const generateStoryOutline = async (idea: string, template: StoryTemplate
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const contents: any[] = [];
   if (imageBase64) contents.push({ inlineData: { data: imageBase64.split(',')[1], mimeType: "image/png" } });
-  contents.push({ text: `请基于创意 "${idea}" 创作绘本大纲（中文）。模板: ${template}。结构：1个封面，10页正文，1个封底。仅返回 JSON。` });
+  contents.push({ text: `请基于创意 "${idea}" 创作绘本大纲（中文）。模板: ${template}。结构：1个封面，10页正文，1个封底。仅返回 JSON 格式数据。` });
   try {
     const response = await ai.models.generateContent({
       model: 'gemini-3-pro-preview',
       contents: { parts: contents },
       config: {
+        safetySettings,
         responseMimeType: "application/json",
         responseSchema: {
           type: Type.OBJECT,
@@ -243,9 +230,30 @@ export const generateStoryOutline = async (idea: string, template: StoryTemplate
         },
       },
     });
-    const data = JSON.parse(response.text?.trim() || '{}');
+    const data = robustJsonParse(response.text || '{}');
     return { title: data.title || "未命名故事", pages: (data.pages || []).map((p: any, idx: number) => ({ ...p, id: generateId(), pageNumber: idx + 1 })) };
-  } catch (error) { throw error; }
+  } catch (error) { 
+    console.error("Outline Error:", error);
+    throw error; 
+  }
+};
+
+const analyzeStyleImage = async (imageBase64: string): Promise<string> => {
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-3-pro-preview',
+      contents: {
+        parts: [
+          { inlineData: { data: imageBase64.split(',')[1], mimeType: 'image/png' } },
+          { text: `Analyze the artistic style of this image. Output a technical English prompt (max 50 words) describing medium, brushwork, and lighting.` }
+        ]
+      }
+    });
+    return response.text?.trim() || "Unique artistic style";
+  } catch (e) {
+    return "Hand-painted artistic style";
+  }
 };
 
 export const generateCharacterOptions = async (description: string, style: VisualStyle, referenceImageBase64?: string, styleDesc?: string): Promise<string[]> => {
@@ -288,7 +296,7 @@ export const generateNextPageSuggestion = async (context: string, currentStory: 
         }
       }
     });
-    const data = JSON.parse(response.text?.trim() || '{"suggestions":[]}');
+    const data = robustJsonParse(response.text || '{"suggestions":[]}');
     return data.suggestions || [];
   } catch (error) { return []; }
 };

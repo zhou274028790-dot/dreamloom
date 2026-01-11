@@ -29,12 +29,7 @@ const IdeaSpark: React.FC<Props> = ({ project, onNext, lang = 'zh', isDark = fal
         '小象波波第一次独自去森林深处寻找甜甜泉。',
         '机器猫布鲁想要飞向蓝天，他用废旧零件做了一对翅膀。',
         '一只害羞的萤火虫在漆黑的暴雨夜指引迷路的小鹿回家。',
-        '勇敢的小骑士奥利弗出发去说服火龙不要再打喷嚏烧毁森林。',
-        '小松鼠跳跳丢了过冬的坚果，它决定去神秘的松塔谷一探究竟。',
-        '木偶奇遇：一个木头小人儿想看看大海，它跳上了一只纸折的小船。',
-        '勇敢的北极熊贝贝想去寻找南方的花朵，它踏上了漫长的冰川之旅。',
-        '小狐狸尼克发现了一张通往‘彩虹尽头’的旧地图，它带上背包出发了。',
-        '害羞的小章鱼决定离开礁石，去深海寻找那个会发光的魔法贝壳。'
+        '勇敢的小骑士奥利弗出发去说服火龙不要再打喷嚏烧毁森林。'
       ] 
     },
     { 
@@ -43,15 +38,7 @@ const IdeaSpark: React.FC<Props> = ({ project, onNext, lang = 'zh', isDark = fal
       desc: lang === 'zh' ? '为小侦探准备的互动乐趣。' : 'Interactive fun for little detectives.', 
       examples: [
         '在热闹的动物森林里，狮子国王丢了他的皇冠，你能帮他在树丛里找到它吗？',
-        '调皮的彩色袜子在洗衣机里捉迷藏，快去阁楼和地毯下找找。',
-        '外星人巴布在超市里迷路了，它藏在水果堆里，你能发现它吗？',
-        '糖果王国的大游行开始了！可是金色的棒棒糖躲到了气球后面。',
-        '小侦探在图书馆发现了一本会动的书，书里的角色都跑到了书架上。',
-        '深海宝藏：在沉没的海盗船周围，你能找到那个装满珍珠的木盒吗？',
-        '热闹的市集里，谁偷走了大厨的秘密食谱？看看谁的口袋里露出了纸角。',
-        '昆虫旅馆开业啦！快数数看有多少只穿着斑点衣服的瓢虫藏在叶子下。',
-        '时光机坏了！恐龙时代的森林里多了一些现代物品，快把它们找出来。',
-        '雪地脚印：是谁在午夜偷吃了厨房的苹果派？沿着脚印去雪林里找找。'
+        '调皮的彩色袜子在洗衣机里捉迷藏，快去阁楼和地毯下找找。'
       ] 
     },
     { 
@@ -60,15 +47,7 @@ const IdeaSpark: React.FC<Props> = ({ project, onNext, lang = 'zh', isDark = fal
       desc: lang === 'zh' ? '帮助孩子们进入梦乡的宁静童话。' : 'Calming tales to help kids drift away.', 
       examples: [
         '小星星累了，它慢慢划过夜空，亲吻每一朵云，对生灵说晚安。',
-        '森林里的风铃草在月光下轻轻摇晃，演奏着最温柔的摇篮曲。',
-        '小兔子跳进了一个棉花糖般的梦境，那里到处是软绵绵的白云床。',
-        '当月亮升起，云朵织成了最暖和的毯子，盖在了沉睡的森林上。',
-        '风儿穿过柳梢，带着泥土的芬芳，轻轻抚慰着每一个疲惫的小梦境。',
-        '小猫咪的呼噜声是神奇的魔法，能让周围所有的声音都安静下来。',
-        '月光森林里，萤火虫提着小灯笼，为每一个入睡的小动物守护。',
-        '当闹钟下班，梦想就开始在枕头边跳舞，带来最甜的果味香气。',
-        '老树爷爷讲了一个长长的故事，树叶沙沙响，那是它的鼾声。',
-        '星星在湖水里洗澡，波纹一圈圈荡漾，把所有的烦恼都带向远方。'
+        '森林里的风铃草在月光下轻轻摇晃，演奏着最温柔的摇篮曲。'
       ] 
     },
     { 
@@ -77,15 +56,7 @@ const IdeaSpark: React.FC<Props> = ({ project, onNext, lang = 'zh', isDark = fal
       desc: lang === 'zh' ? '充满搞怪情节和欢笑的故事。' : 'Silly situations and big laughs.', 
       examples: [
         '如果天空下的不是雨，而是五颜六色的冰淇淋球，世界会怎样？',
-        '一只学会了跳芭蕾舞的河马，决定去参加巴黎歌剧院的试镜。',
-        '我的书包是一个黑洞！里面不仅有课本，还藏着一个微缩的外星城市。',
-        '由于重力出了故障，今天大家都要穿着磁铁鞋在天花板上吃早餐。',
-        '疯狂实验室：小猪皮皮误喝了‘膨胀药水’，变成了一个飞在空中的热气球。',
-        '如果我的影子有自己的想法，它肯定想去动物园和猴子比赛爬树。',
-        '当闹钟长出了腿，它带着所有的闹钟在早晨五点进行全城马拉松。',
-        '超市里的蔬菜们趁没人时举办了一场盛大的音乐会，南瓜是主唱。',
-        '由于魔法咒语读错了，我的宠物猫突然开始说法语，并要求吃蜗牛。',
-        '我的自行车居然是一条伪装的绿色恐龙，它喜欢带我去啃路边的树叶。'
+        '一只学会了跳芭蕾舞的河马，决定去参加巴黎歌剧院的试镜。'
       ] 
     },
   ];
@@ -112,6 +83,9 @@ const IdeaSpark: React.FC<Props> = ({ project, onNext, lang = 'zh', isDark = fal
     setError(null);
     try {
       const script = await generateStoryOutline(idea || "基于图片的创意", template, uploadedImage || undefined);
+      if (!script || !script.pages || script.pages.length === 0) {
+        throw new Error("AI returned empty outline.");
+      }
       onNext({
         originalIdea: idea || "基于图片的创意",
         template,
@@ -119,8 +93,9 @@ const IdeaSpark: React.FC<Props> = ({ project, onNext, lang = 'zh', isDark = fal
         pages: script.pages as any,
         currentStep: 'character'
       });
-    } catch (err) {
-      setError(lang === 'zh' ? "故事构思失败，请重试。" : "Failed to spark the story. Please try again.");
+    } catch (err: any) {
+      console.error("Generate Error Detail:", err);
+      setError(lang === 'zh' ? `故事构思失败: ${err.message || '网络繁忙'}` : `Failed to spark the story: ${err.message}`);
     } finally {
       setIsGenerating(false);
     }
@@ -146,8 +121,14 @@ const IdeaSpark: React.FC<Props> = ({ project, onNext, lang = 'zh', isDark = fal
         <p className="text-sm md:text-lg opacity-60 max-w-2xl mx-auto font-medium">{lang === 'zh' ? '告诉我们你的想法，我们先锁定故事的大纲。' : 'Tell us your idea first.'}</p>
       </div>
 
+      {error && (
+        <div className="bg-red-50 border border-red-100 text-red-600 px-6 py-4 rounded-2xl flex items-center gap-3 animate-in shake">
+          <i className="fas fa-exclamation-circle"></i>
+          <p className="text-sm font-bold">{error}</p>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8 items-start w-full">
-        {/* 输入区 */}
         <div className="card-dynamic p-4 md:p-6 rounded-[24px] relative w-full">
           <label className="block text-sm font-bold opacity-80 mb-4 flex items-center justify-between">
             {lang === 'zh' ? '你的故事种子' : 'Your Story Seed'}
@@ -166,7 +147,10 @@ const IdeaSpark: React.FC<Props> = ({ project, onNext, lang = 'zh', isDark = fal
               className="w-full h-40 md:h-48 p-4 md:p-5 rounded-2xl bg-[var(--card-bg)] text-[var(--text-main)] placeholder:text-[var(--text-sub)] focus:ring-4 focus:ring-[#EA6F23]/10 outline-none resize-none transition-all font-medium text-base md:text-lg leading-relaxed shadow-inner border border-[var(--border-color)]"
               placeholder={lang === 'zh' ? "写下一句话，或者上传一张图开启故事..." : "A sentence to start..."}
               value={idea}
-              onChange={(e) => setIdea(e.target.value)}
+              onChange={(e) => {
+                setIdea(e.target.value);
+                if (error) setError(null);
+              }}
             />
             {uploadedImage && (
               <div className="absolute bottom-4 right-4 w-16 h-16 rounded-xl border-2 border-[var(--card-bg)] shadow-lg overflow-hidden group">
@@ -187,7 +171,6 @@ const IdeaSpark: React.FC<Props> = ({ project, onNext, lang = 'zh', isDark = fal
           }} />
         </div>
 
-        {/* 模板区 */}
         <div className="grid grid-cols-1 gap-4 w-full">
           <p className="text-[10px] font-black opacity-30 uppercase tracking-widest ml-2 mb-1 flex items-center gap-2">
             <i className="fas fa-shuffle text-xs"></i>
@@ -202,9 +185,6 @@ const IdeaSpark: React.FC<Props> = ({ project, onNext, lang = 'zh', isDark = fal
                 <div>
                   <h4 className="font-bold text-sm md:text-base" style={{ color: 'var(--text-main)' }}>{t.id}</h4>
                   <p className="text-xs opacity-50 font-medium line-clamp-2">{t.desc}</p>
-                </div>
-                <div className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity text-[#EA6F23]/30">
-                  <i className="fas fa-shuffle"></i>
                 </div>
               </div>
             </button>
