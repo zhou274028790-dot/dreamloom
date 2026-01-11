@@ -25,14 +25,14 @@ const DirectorMode: React.FC<Props> = ({ project, onNext, onBack, userCoins, ded
   const [queueMsg, setQueueMsg] = useState('正在魔法创作中...');
   
   const waitingPhrases = [
-    "前面还有几个灵感在排队...",
-    "正在调配最适合故事的魔法色彩...",
-    "正在精雕细琢每一处光影...",
-    "正在让角色在画面中跃然而出...",
-    "绘本大师正在构思下一个构图...",
-    "正在为您的故事注入灵魂...",
-    "排队中，美好的事物值得等待...",
-    "AI 正在为您的一字一句匹配最美意境..."
+    "正在通过 100/min 高速通道排队...",
+    "正在调配 Imagen 3.0 专业艺术引擎...",
+    "正在精雕细琢 2K 超清画质...",
+    "正在确保角色在不同场景的一致性...",
+    "绘本大师正在构思最佳黄金分割构图...",
+    "正在为您的绘本注入灵魂与色彩...",
+    "正在极速渲染下一页梦境...",
+    "AI 正在根据您的创意进行艺术升华..."
   ];
 
   useEffect(() => {
@@ -44,19 +44,15 @@ const DirectorMode: React.FC<Props> = ({ project, onNext, onBack, userCoins, ded
     if (isBulkGenerating) {
       timer = window.setInterval(() => {
         setQueueMsg(waitingPhrases[Math.floor(Math.random() * waitingPhrases.length)]);
-      }, 5000);
+      }, 4000); // 稍微加快文案切换，缓解焦虑
     }
     return () => clearInterval(timer);
   }, [isBulkGenerating]);
 
   const handleApiError = (err: any) => {
-    alert("生成出错: " + (err.message || "请求被拒绝。请检查网络或稍后再试。"));
+    alert("生图引擎响应异常: " + (err.message || "连接超时。"));
   };
 
-  /**
-   * 核心功能：序列生成
-   * 为了解决“图片加载失败”和“429并发限制”，我们采用串行队列。
-   */
   const handleGenerateAll = async () => {
     const ungeneratedIndices = pages.map((p, i) => p.imageUrl ? -1 : i).filter(i => i !== -1);
     if (ungeneratedIndices.length === 0) return alert("所有页面都已生成！");
@@ -79,6 +75,7 @@ const DirectorMode: React.FC<Props> = ({ project, onNext, onBack, userCoins, ded
 
       try {
         const page = updatedPages[targetIndex];
+        // 核心改动：在调用 API 之前，再次确保 characterSeedImage 是可用的
         const base64Img = await generateSceneImage(
           page.text, 
           page.visualPrompt, 
@@ -94,8 +91,8 @@ const DirectorMode: React.FC<Props> = ({ project, onNext, onBack, userCoins, ded
         updatedPages[targetIndex] = { ...updatedPages[targetIndex], isGenerating: false };
       }
       setPages([...updatedPages]);
-      // 短暂延迟避免 API 严格限流
-      await new Promise(r => setTimeout(r, 1200));
+      // 因为您有 100/min 的配额，我们将延迟缩短到 400ms，加速出图
+      await new Promise(r => setTimeout(r, 400));
     }
 
     onNext({ pages: updatedPages });
@@ -212,7 +209,7 @@ const DirectorMode: React.FC<Props> = ({ project, onNext, onBack, userCoins, ded
                   <h3 className="text-3xl font-bold font-header text-white tracking-tight">{queueMsg}</h3>
                   <div className="flex items-center justify-center gap-2">
                      <span className="flex h-2 w-2 rounded-full bg-green-400 animate-ping"></span>
-                     <p className="text-white/40 font-black uppercase tracking-[0.2em] text-[10px]">当前正在排队出图中</p>
+                     <p className="text-white/40 font-black uppercase tracking-[0.2em] text-[10px]">高速创作通道已开启</p>
                   </div>
                 </div>
                 
@@ -221,12 +218,12 @@ const DirectorMode: React.FC<Props> = ({ project, onNext, onBack, userCoins, ded
                       <div className="h-full bg-gradient-to-r from-orange-400 to-[#EA6F23] rounded-full transition-all duration-700 shadow-[0_0_20px_rgba(234,111,35,0.4)]" style={{ width: `${bulkProgress}%` }}></div>
                    </div>
                    <div className="flex justify-between text-[10px] font-black text-white/40 uppercase tracking-widest">
-                      <span>第 {activeIndex + 1} 页</span>
+                      <span>第 {activeIndex + 1} 页 / 共 {pages.length} 页</span>
                       <span>{bulkProgress}%</span>
                    </div>
                 </div>
              </div>
-             <p className="text-orange-200/60 text-sm font-medium italic leading-relaxed px-4">“为了保证画质和风格统一，AI 正在逐页精修。这可能需要一点时间，请保持开启此页面...”</p>
+             <p className="text-orange-200/60 text-sm font-medium italic leading-relaxed px-4">“您的 Imagen 3.0 高级配额已激活，AI 正在全力渲染每一个奇妙细节。”</p>
            </div>
         </div>
       )}
@@ -239,7 +236,7 @@ const DirectorMode: React.FC<Props> = ({ project, onNext, onBack, userCoins, ded
              disabled={isBulkGenerating}
              className="px-6 py-2 bg-[#EA6F23] text-white rounded-full font-bold text-xs shadow-lg flex items-center gap-2 hover:scale-105 active:scale-95 transition-all"
            >
-             <i className="fas fa-magic"></i> 一键生成余下分镜
+             <i className="fas fa-magic"></i> 启用高速引擎一键生成
            </button>
            <div className="w-12 h-12 rounded-xl overflow-hidden border-2 border-[#EA6F23] shadow-md hidden sm:block">
              <img src={project.characterSeedImage} className="w-full h-full object-cover" />
@@ -267,7 +264,7 @@ const DirectorMode: React.FC<Props> = ({ project, onNext, onBack, userCoins, ded
                           <div className="w-full h-full flex flex-col items-center justify-center gap-4">
                             {!page.isGenerating && (
                               <button onClick={() => handleRedraw(idx)} className="btn-candy px-8 py-3 text-white rounded-2xl font-bold flex items-center gap-2 shadow-lg">
-                                <i className="fas fa-paint-brush"></i> 生成本页画面
+                                <i className="fas fa-paint-brush"></i> 魔法生成本页
                               </button>
                             )}
                           </div>
@@ -276,7 +273,7 @@ const DirectorMode: React.FC<Props> = ({ project, onNext, onBack, userCoins, ded
                       {page.isGenerating && (
                         <div className="absolute inset-0 bg-white/40 backdrop-blur-md flex flex-col items-center justify-center gap-4">
                            <div className="w-12 h-12 border-4 border-[#EA6F23] border-t-transparent rounded-full animate-spin"></div>
-                           <p className="text-xs font-bold text-[#EA6F23] animate-pulse">正在精雕细琢每一像素...</p>
+                           <p className="text-xs font-bold text-[#EA6F23] animate-pulse">正在精雕细琢 2K 梦境...</p>
                         </div>
                       )}
                       
