@@ -1,13 +1,15 @@
 
 import React, { useState } from 'react';
-import { Language } from '../types';
+import { Language, User } from '../types';
 
 interface Props {
   onLogin: (name: string, method: 'email' | 'phone' | 'wechat' | 'guest') => void;
+  onLogout: () => void;
+  currentUser: User;
   lang: Language;
 }
 
-const Login: React.FC<Props> = ({ onLogin, lang }) => {
+const Login: React.FC<Props> = ({ onLogin, onLogout, currentUser, lang }) => {
   const [method, setMethod] = useState<'email' | 'phone' | 'wechat' | 'guest'>('email');
   const [inputValue, setInputValue] = useState('');
   const [password, setPassword] = useState('');
@@ -23,7 +25,9 @@ const Login: React.FC<Props> = ({ onLogin, lang }) => {
       wechat: '微信登录',
       guest: '游客体验',
       other: '其他方式登录',
-      agree: '登录即代表同意《用户协议》与《隐私政策》'
+      agree: '登录即代表同意《用户协议》与《隐私政策》',
+      alreadyIn: '已作为造梦师登录',
+      switch: '切换账号'
     },
     en: { 
       welcome: 'DreamLoom AI', 
@@ -35,7 +39,9 @@ const Login: React.FC<Props> = ({ onLogin, lang }) => {
       wechat: 'WeChat',
       guest: 'Guest Mode',
       other: 'Other Methods',
-      agree: 'By continuing, you agree to our Terms'
+      agree: 'By continuing, you agree to our Terms',
+      alreadyIn: 'Already logged in as',
+      switch: 'Switch Account'
     }
   }[lang];
 
@@ -46,16 +52,37 @@ const Login: React.FC<Props> = ({ onLogin, lang }) => {
     onLogin(finalName, method);
   };
 
+  if (currentUser.isLoggedIn) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center p-6 text-center">
+        <div className="max-w-[440px] w-full bg-white/80 backdrop-blur-xl p-10 md:p-14 rounded-[4rem] shadow-2xl border border-white flex flex-col items-center space-y-10 animate-in zoom-in-95">
+          <div className="w-24 h-24 bg-[#EA6F23] rounded-[2.5rem] flex items-center justify-center text-white text-4xl shadow-xl rotate-3">
+             <i className="fas fa-wand-magic-sparkles"></i>
+          </div>
+          <div className="space-y-4">
+            <h2 className="text-2xl font-bold font-header text-gray-900">{t.alreadyIn}</h2>
+            <div className="px-6 py-2 bg-orange-50 text-[#EA6F23] rounded-full font-black text-sm border border-orange-100">{currentUser.username}</div>
+          </div>
+          <div className="w-full space-y-4">
+             <button onClick={() => onLogin(currentUser.username, 'guest')} className="btn-candy w-full py-5 text-white rounded-[2rem] font-bold text-lg shadow-xl active:scale-95 transition-all">
+               {t.primaryBtn}
+             </button>
+             <button onClick={onLogout} className="w-full py-3 text-gray-400 font-bold text-xs hover:text-gray-600">
+               <i className="fas fa-sign-out-alt mr-1"></i> {t.switch}
+             </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-[#FDF6F0] flex flex-col items-center justify-center p-6 relative overflow-hidden">
-      {/* 装饰背景 */}
+    <div className="min-h-screen flex flex-col items-center justify-center p-6 relative overflow-hidden">
       <div className="absolute top-0 inset-x-0 h-[60vh] bg-gradient-to-b from-orange-100/50 to-transparent"></div>
-      <div className="absolute -left-20 -top-20 w-64 h-64 bg-orange-200/20 rounded-full blur-3xl"></div>
-      <div className="absolute -right-20 bottom-0 w-80 h-80 bg-orange-300/10 rounded-full blur-3xl"></div>
       
       <div className="max-w-[440px] w-full bg-white/80 backdrop-blur-xl p-10 md:p-14 rounded-[4rem] shadow-[0_32px_64px_-16px_rgba(0,0,0,0.1)] border border-white flex flex-col items-center text-center space-y-10 animate-in zoom-in-95 duration-500 relative z-10">
         <div className="w-24 h-24 bg-gradient-to-br from-[#EA6F23] to-[#F28C4F] rounded-[2.5rem] flex items-center justify-center shadow-2xl rotate-3 transform transition-transform hover:rotate-0">
-           <i className="fas fa-star text-white text-4xl shadow-sm"></i>
+           <i className="fas fa-star text-white text-4xl"></i>
            <div className="absolute -top-2 -right-2 bg-white text-[#EA6F23] text-[9px] font-black px-2 py-1 rounded-full border shadow-sm">PRO</div>
         </div>
 

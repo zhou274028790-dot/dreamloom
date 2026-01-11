@@ -103,27 +103,26 @@ const App: React.FC = () => {
   }, [bgColor]);
 
   /**
-   * 自动计算板块背景逻辑：
-   * 亮色背景下为纯白。
-   * 暗色背景下（如巧克力色 #2C211D），板块背景色设为稍微明亮一些的同色系半透明色。
+   * 视觉算法优化：深色模式下，板块颜色自动比背景亮 10%
    */
   useEffect(() => {
     const hex = bgColor.replace('#', '');
-    const r = Math.min(255, parseInt(hex.substr(0, 2), 16) + 20);
-    const g = Math.min(255, parseInt(hex.substr(2, 2), 16) + 20);
-    const b = Math.min(255, parseInt(hex.substr(4, 2), 16) + 20);
+    const adjust = isDarkBg ? 30 : 0;
+    const r = Math.min(255, parseInt(hex.substr(0, 2), 16) + adjust);
+    const g = Math.min(255, parseInt(hex.substr(2, 2), 16) + adjust);
+    const b = Math.min(255, parseInt(hex.substr(4, 2), 16) + adjust);
     
-    const cardBg = isDarkBg ? `rgba(${r}, ${g}, ${b}, 0.6)` : '#FFFFFF';
-    const borderColor = isDarkBg ? 'rgba(255, 255, 255, 0.15)' : 'rgba(234, 111, 35, 0.1)';
+    const cardBg = isDarkBg ? `rgba(${r}, ${g}, ${b}, 0.7)` : '#FFFFFF';
+    const borderColor = isDarkBg ? `rgba(${r+20}, ${g+20}, ${b+20}, 0.3)` : 'rgba(234, 111, 35, 0.1)';
     const textMain = isDarkBg ? '#FFFFFF' : '#2C211D';
-    const textSub = isDarkBg ? 'rgba(255, 255, 255, 0.5)' : 'rgba(44, 33, 29, 0.5)';
+    const textSub = isDarkBg ? 'rgba(255, 255, 255, 0.45)' : 'rgba(44, 33, 29, 0.5)';
 
     document.documentElement.style.setProperty('--bg-paper', bgColor);
     document.documentElement.style.setProperty('--text-main', textMain);
     document.documentElement.style.setProperty('--text-sub', textSub);
     document.documentElement.style.setProperty('--card-bg', cardBg);
     document.documentElement.style.setProperty('--border-color', borderColor);
-    document.documentElement.style.setProperty('--card-shadow', isDarkBg ? '0 12px 40px rgba(0,0,0,0.5)' : '0 4px 20px rgba(0, 0, 0, 0.05)');
+    document.documentElement.style.setProperty('--card-shadow', isDarkBg ? '0 15px 50px rgba(0,0,0,0.6)' : '0 4px 20px rgba(0, 0, 0, 0.05)');
   }, [bgColor, isDarkBg]);
 
   const updateProject = async (updates: Partial<BookProject>) => {
@@ -181,7 +180,8 @@ const App: React.FC = () => {
 
   const handleLogout = async () => {
     await signOut(auth);
-    setUser(p => ({ ...p, isLoggedIn: false }));
+    setFirebaseUid(null);
+    setUser(p => ({ ...p, isLoggedIn: false, username: '', coins: 0 }));
     setCurrentView('login');
     setIsMenuOpen(false);
   };
@@ -195,10 +195,10 @@ const App: React.FC = () => {
            </div>
            <div className="space-y-2">
               <h2 className="text-2xl font-bold font-header">关联密钥以开启创作</h2>
-              <p className="opacity-60 text-sm font-medium">监测到您当前没有激活 API Key。请点击下方按钮手动选择。</p>
+              <p className="opacity-60 text-sm font-medium">检测到未激活 API Key。</p>
            </div>
            <button onClick={handleOpenKeySelector} className="btn-candy w-full py-4 text-white rounded-2xl font-bold shadow-xl">
-             <i className="fas fa-external-link-alt mr-2"></i> 选择 API 密钥
+             选择密钥
            </button>
         </div>
       </div>
@@ -234,7 +234,7 @@ const App: React.FC = () => {
                   <MenuBtn icon="fa-map" label={lang === 'zh' ? '阅读广场' : 'Plaza'} active={currentView === 'plaza'} onClick={() => { setCurrentView('plaza'); setIsMenuOpen(false); }} />
                   <div className="h-[1px] bg-[var(--border-color)] my-2"></div>
                   <MenuBtn icon="fa-user" label={lang === 'zh' ? '个人中心' : 'Profile'} active={currentView === 'profile'} onClick={() => { setCurrentView('profile'); setIsMenuOpen(false); }} />
-                  <MenuBtn icon="fa-sign-out-alt" label={lang === 'zh' ? '注销登录' : 'Logout'} active={false} onClick={handleLogout} />
+                  <MenuBtn icon="fa-sign-out-alt" label={lang === 'zh' ? '退出当前账号' : 'Logout'} active={false} onClick={handleLogout} />
                </div>
              )}
            </div>
@@ -243,7 +243,7 @@ const App: React.FC = () => {
 
       <main className="flex-1 overflow-x-hidden w-full">
         <div className="max-w-7xl mx-auto px-4 py-6 md:py-10 w-full">
-          {currentView === 'login' ? <Login onLogin={handleLogin} lang={lang} /> : 
+          {currentView === 'login' ? <Login onLogin={handleLogin} onLogout={handleLogout} currentUser={user} lang={lang} /> : 
            currentView === 'plaza' ? <ReadingPlaza lang={lang} onUseStyle={(style) => { setProject(p => ({ ...p, visualStyle: style, currentStep: 'idea', id: Math.random().toString(36).substr(2, 9), pages: [] })); setCurrentView('studio'); }} onUseIdea={(idea) => { setProject(p => ({ ...p, originalIdea: idea, currentStep: 'idea', id: Math.random().toString(36).substr(2, 9), pages: [] })); setCurrentView('studio'); }} /> :
            currentView === 'brand' ? <BrandStory lang={lang} isDark={isDarkBg} /> :
            currentView === 'profile' ? <MyProfile user={user} setUser={setUser} lang={lang} setLang={setLang} bgColor={bgColor} setBgColor={setBgColor} history={history} isDark={isDarkBg} /> :
@@ -273,9 +273,9 @@ const App: React.FC = () => {
              </div>
              <div className="space-y-3">
                 <h3 className="text-3xl font-bold font-header">新造梦师礼包</h3>
-                <p className="opacity-60 font-medium leading-relaxed">欢迎加入 DreamLoom！我们赠送了您 80 颗金豆，开启您的第一次绘本创作吧。</p>
+                <p className="opacity-60 font-medium leading-relaxed">赠送 80 颗金豆。</p>
              </div>
-             <button onClick={() => setShowReward(false)} className="btn-candy w-full py-5 text-white rounded-[2rem] font-bold shadow-2xl">立即开启创作</button>
+             <button onClick={() => setShowReward(false)} className="btn-candy w-full py-5 text-white rounded-[2rem] font-bold shadow-2xl">立即开启</button>
           </div>
         </div>
       )}

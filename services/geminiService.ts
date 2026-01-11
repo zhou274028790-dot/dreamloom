@@ -5,6 +5,20 @@ import { StoryTemplate, StoryPage, VisualStyle } from "../types";
 const generateId = () => Math.random().toString(36).substr(2, 9);
 
 /**
+ * 辅助函数：从 AI 混乱的文本中精准提取 JSON 部分
+ */
+const extractJson = (text: string) => {
+  try {
+    const match = text.match(/\{[\s\S]*\}/);
+    if (!match) return null;
+    return JSON.parse(match[0]);
+  } catch (e) {
+    console.error("JSON Parse Error:", e);
+    return null;
+  }
+};
+
+/**
  * 强化版图片预处理：增加静默重试和更好的跨域处理
  */
 const prepareImageForAi = async (imgData: string, retryCount = 0): Promise<string> => {
@@ -100,7 +114,7 @@ export const analyzeStyleImage = async (imageBase64: string): Promise<string> =>
       contents: {
         parts: [
           { inlineData: { data: base64Data, mimeType: 'image/jpeg' } },
-          { text: "Analyze this art style thoroughly. Extract: 1. Primary and secondary color palette; 2. Composition style; 3. Artistic features like brushstrokes, textures, grain, or line work. Summarize into a single paragraph in English to be used as an AI style prompt for children's books." }
+          { text: "Analyze this art style thoroughly for children's books. Focus on color palette and textures. Summarize in one English paragraph." }
         ]
       }
     });
@@ -133,20 +147,21 @@ export const finalizeVisualScript = async (
       contents: {
         parts: [
           { inlineData: { data: charBase64, mimeType: 'image/jpeg' } },
-          { text: "简要描述此角色的外貌特征（中文，20字内）。" }
+          { text: "Describe this character's visual features in 20 Chinese characters." }
         ]
       }
     });
     const analyzedDesc = analysisResponse.text?.trim() || characterDesc;
 
     const scriptResponse = await ai.models.generateContent({
-      model: 'gemini-3-pro-preview',
-      contents: `角色: ${analyzedDesc}, 画风: ${stylePrompt}. 编写以下情节的英文生图提示词: ${pages.map(p => p.text).join('|')}. 仅返回 JSON: {updatedPages: [{text, visualPrompt}]}`,
+      model: 'gemini-3-flash-preview',
+      contents: `Character: ${analyzedDesc}, Style: ${stylePrompt}. Create detailed visual prompts for these plot points: ${pages.map(p => p.text).join('|')}. Return JSON ONLY: {updatedPages: [{text, visualPrompt}]}`,
       config: { responseMimeType: "application/json" }
     });
 
-    const cleanJson = scriptResponse.text.replace(/```json/g, '').replace(/```/g, '').trim();
-    const data = JSON.parse(cleanJson);
+    const data = extractJson(scriptResponse.text);
+    if (!data || !data.updatedPages) throw new Error("Invalid script format from AI");
+
     const finalPages = pages.map((p, idx) => ({
       ...p,
       text: data.updatedPages?.[idx]?.text || p.text,
@@ -156,8 +171,8 @@ export const finalizeVisualScript = async (
 
     return { pages: finalPages, analyzedCharacterDesc: analyzedDesc, analyzedStyleDesc };
   } catch (error) {
-    console.error(error);
-    throw new Error("脚本优化失败，请重试。");
+    console.error("Script Finalization Error:", error);
+    throw new Error("脚本优化失败，请稍后重试。");
   }
 };
 
@@ -179,7 +194,7 @@ export const generateSceneImage = async (
       contents: {
         parts: [
           { inlineData: { data: charBase64, mimeType: 'image/jpeg' } },
-          { text: `consistent children's book illustration. Character: ${characterDesc}. Style: ${stylePrompt}. Scene: ${visualPrompt}. High quality, 2D art, artistic composition, no text.` }
+          { text: `consistent children's book illustration. Character: ${characterDesc}. Style: ${stylePrompt}. Scene: ${visualPrompt}. High quality art, no text.` }
         ]
       },
       config: { safetySettings }
@@ -188,9 +203,8 @@ export const generateSceneImage = async (
     for (const part of response.candidates?.[0]?.content?.parts || []) {
       if (part.inlineData) return `data:image/jpeg;base64,${part.inlineData.data}`;
     }
-    throw new Error("模型未返回图像数据");
+    throw new Error("No image data returned");
   } catch (error) {
-    console.error(error);
     throw new Error("生成失败: " + error.message);
   }
 };
@@ -215,7 +229,7 @@ export const editPageImage = async (
         parts: [
           { inlineData: { data: pageBase64, mimeType: 'image/jpeg' } },
           { inlineData: { data: charBase64, mimeType: 'image/jpeg' } },
-          { text: `consistent book illustration edit. Change the first image based on: ${instruction}. Keep character from second image: ${characterDesc}. Style: ${stylePrompt}.` }
+          { text: `Edit instruction: ${instruction}. Keep character consistent: ${characterDesc}. Style: ${stylePrompt}.` }
         ]
       },
       config: { safetySettings }
@@ -224,7 +238,7 @@ export const editPageImage = async (
     for (const part of response.candidates?.[0]?.content?.parts || []) {
       if (part.inlineData) return `data:image/jpeg;base64,${part.inlineData.data}`;
     }
-    throw new Error("编辑失败");
+    throw new Error("Edit failed");
   } catch (error) {
     throw new Error("微调失败: " + error.message);
   }
@@ -238,7 +252,7 @@ export const generateCharacterOptions = async (description: string, style: Visua
     const imgBase64 = await prepareImageForAi(image);
     parts.push({ inlineData: { data: imgBase64, mimeType: 'image/jpeg' } });
   }
-  parts.push({ text: `Character design sheet. Description: ${description}. Gentle abstract artistic character shapes. Art Style: ${stylePrompt}. Multiple poses, white background.` });
+  parts.push({ text: `Character sheet for: ${description}. Gentle abstract shapes. Style: ${stylePrompt}. White background.` });
   
   try {
     const response = await ai.models.generateContent({ 
@@ -263,18 +277,28 @@ export const generateStoryOutline = async (idea: string, template: StoryTemplate
     const imgBase64 = await prepareImageForAi(image);
     parts.push({ inlineData: { data: imgBase64, mimeType: "image/jpeg" } });
   }
-  parts.push({ text: `基于想法 "${idea}" 创作12页绘本情节大纲。模板: ${template}. 返回 JSON: {title, pages: [{type, text}]}` });
+  parts.push({ text: `Create a 12-page story outline based on: "${idea}". Template: ${template}. Response language: Chinese. Return JSON ONLY: {title, pages: [{type, text}]}` });
   
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-3-pro-preview',
+      model: 'gemini-3-flash-preview',
       contents: { parts },
       config: { responseMimeType: "application/json" }
     });
-    const cleanJson = response.text.replace(/```json/g, '').replace(/```/g, '').trim();
-    const data = JSON.parse(cleanJson);
-    return { title: data.title, pages: (data.pages || []).map((p: any, idx: number) => ({ ...p, id: generateId(), pageNumber: idx + 1 })) };
+    
+    const data = extractJson(response.text);
+    if (!data || !data.pages) throw new Error("Outline parse failed");
+
+    return { 
+      title: data.title, 
+      pages: (data.pages || []).map((p: any, idx: number) => ({ 
+        ...p, 
+        id: generateId(), 
+        pageNumber: idx + 1 
+      })) 
+    };
   } catch (err) {
-    throw new Error("大纲生成失败");
+    console.error("Outline Generation Detailed Error:", err);
+    throw new Error("大纲生成失败，AI 当前太忙，请换个词试试。");
   }
 };
