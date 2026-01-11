@@ -45,6 +45,7 @@ const App: React.FC = () => {
   const [history, setHistory] = useState<BookProject[]>([]);
 
   useEffect(() => {
+    // 监听 Auth 状态
     const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
       if (fbUser) {
         setFirebaseUid(fbUser.uid);
@@ -55,7 +56,6 @@ const App: React.FC = () => {
           setHistory(projects);
           setCurrentView('studio');
         } else {
-          // 如果有账号但没 profile (比如刚匿名登录)
           setCurrentView('login');
         }
       } else {
@@ -117,6 +117,7 @@ const App: React.FC = () => {
 
   const handleLogin = async (username: string, method: string) => {
     try {
+      // 尝试匿名登录
       const cred = await signInAnonymously(auth);
       const initialCoins = 80;
       const newUser = { username, coins: initialCoins, isFirstRecharge: true, isLoggedIn: true };
@@ -125,9 +126,14 @@ const App: React.FC = () => {
       setFirebaseUid(cred.user.uid);
       setShowReward(true);
       setCurrentView('studio');
-    } catch (e) {
+    } catch (e: any) {
       console.error("Login Error:", e);
-      alert("Login failed. Please check your network.");
+      // 提供更详细的错误原因，尤其是针对 403 权限问题
+      if (e.code === 'auth/operation-not-allowed') {
+        alert("登录失败：请在 Firebase 控制台的 Authentication 选项卡中启用 'Anonymous' (匿名) 登录方式。");
+      } else {
+        alert(`登录失败 (${e.code || 'Network Error'}): 请检查网络或 Firebase 配置。`);
+      }
     }
   };
 
