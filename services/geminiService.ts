@@ -20,59 +20,86 @@ const extractJson = (text: string) => {
 
 /**
  * 强化版图片预处理：增加静默重试和更好的跨域处理
+ * 尝试通过 Fetch 加载，如果失败（如 CORS 问题），则尝试直接通过 Image 对象加载。
  */
 const prepareImageForAi = async (imgData: string, retryCount = 0): Promise<string> => {
   if (!imgData) throw new Error("无效的图片数据");
 
-  try {
-    let blob: Blob;
-    if (imgData.startsWith('http')) {
-      const resp = await fetch(imgData, { mode: 'cors', cache: 'no-cache' });
-      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-      blob = await resp.blob();
-    } else {
-      const resp = await fetch(imgData);
-      blob = await resp.blob();
-    }
-
-    return new Promise((resolve, reject) => {
-      const img = new Image();
-      const url = URL.createObjectURL(blob);
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        const MAX_SIZE = 768; 
-        let width = img.width;
-        let height = img.height;
-
-        if (width > height) {
-          if (width > MAX_SIZE) { height *= MAX_SIZE / width; width = MAX_SIZE; }
-        } else {
-          if (height > MAX_SIZE) { width *= MAX_SIZE / height; height = MAX_SIZE; }
-        }
-
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext('2d');
-        if (!ctx) return reject(new Error("Canvas context failed"));
-        
-        ctx.fillStyle = "#FFFFFF";
-        ctx.fillRect(0, 0, width, height);
-        ctx.drawImage(img, 0, 0, width, height);
-        
-        const compressedData = canvas.toDataURL('image/jpeg', 0.6);
-        URL.revokeObjectURL(url);
-        resolve(compressedData.split(',')[1]);
-      };
-      img.onerror = () => {
-        URL.revokeObjectURL(url);
-        reject(new Error("Image decoding failed"));
-      };
-      img.src = url;
-    });
-  } catch (e) {
-    if (retryCount < 2) return prepareImageForAi(imgData, retryCount + 1);
-    throw new Error("图片加载失败，请确保链接有效并允许跨域。");
+  // 如果是 Base64 数据，直接处理
+  if (imgData.startsWith('data:')) {
+    return processImageBase64(imgData);
   }
+
+  try {
+    const resp = await fetch(imgData, { mode: 'cors', cache: 'no-cache' });
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const blob = await resp.blob();
+    const url = URL.createObjectURL(blob);
+    const result = await processImageFromUrl(url);
+    URL.revokeObjectURL(url);
+    return result;
+  } catch (e) {
+    // 如果 Fetch 失败，尝试直接 Image 加载（可能受限于 canvas 污染，但值得一试）
+    try {
+      return await processImageFromUrl(imgData);
+    } catch (innerError) {
+      if (retryCount < 2) return prepareImageForAi(imgData, retryCount + 1);
+      throw new Error("图片加载失败，请确保链接有效并允许跨域。");
+    }
+  }
+};
+
+const processImageBase64 = (base64: string): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      const MAX_SIZE = 768; 
+      let width = img.width;
+      let height = img.height;
+      if (width > height) { if (width > MAX_SIZE) { height *= MAX_SIZE / width; width = MAX_SIZE; } } 
+      else { if (height > MAX_SIZE) { width *= MAX_SIZE / height; height = MAX_SIZE; } }
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return reject(new Error("Canvas context failed"));
+      ctx.fillStyle = "#FFFFFF";
+      ctx.fillRect(0, 0, width, height);
+      ctx.drawImage(img, 0, 0, width, height);
+      resolve(canvas.toDataURL('image/jpeg', 0.6).split(',')[1]);
+    };
+    img.onerror = () => reject(new Error("Image decoding failed"));
+    img.src = base64;
+  });
+};
+
+const processImageFromUrl = (url: string): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      const MAX_SIZE = 768; 
+      let width = img.width;
+      let height = img.height;
+      if (width > height) { if (width > MAX_SIZE) { height *= MAX_SIZE / width; width = MAX_SIZE; } } 
+      else { if (height > MAX_SIZE) { width *= MAX_SIZE / height; height = MAX_SIZE; } }
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return reject(new Error("Canvas context failed"));
+      ctx.fillStyle = "#FFFFFF";
+      ctx.fillRect(0, 0, width, height);
+      try {
+        ctx.drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL('image/jpeg', 0.6).split(',')[1]);
+      } catch (e) {
+        reject(e); // 可能是 canvas 被污染
+      }
+    };
+    img.onerror = () => reject(new Error("Image load failed"));
+    img.src = url;
+  });
 };
 
 const safetySettings = [

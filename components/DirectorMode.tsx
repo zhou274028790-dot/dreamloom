@@ -22,10 +22,32 @@ const DirectorMode: React.FC<Props> = ({ project, onNext, onBack, userCoins, ded
   const [isExpanding, setIsExpanding] = useState(false);
   const [isBulkGenerating, setIsBulkGenerating] = useState(false);
   const [bulkProgress, setBulkProgress] = useState(0);
+  const [queueMsg, setQueueMsg] = useState('正在魔法创作中...');
   
+  const waitingPhrases = [
+    "前面还有几个灵感在排队...",
+    "正在调配最适合故事的魔法色彩...",
+    "正在精雕细琢每一处光影...",
+    "正在让角色在画面中跃然而出...",
+    "绘本大师正在构思下一个构图...",
+    "正在为您的故事注入灵魂...",
+    "排队中，美好的事物值得等待...",
+    "AI 正在为您的一字一句匹配最美意境..."
+  ];
+
   useEffect(() => {
     if (project.pages.length > 0) setPages(project.pages);
   }, [project.pages]);
+
+  useEffect(() => {
+    let timer: number;
+    if (isBulkGenerating) {
+      timer = window.setInterval(() => {
+        setQueueMsg(waitingPhrases[Math.floor(Math.random() * waitingPhrases.length)]);
+      }, 5000);
+    }
+    return () => clearInterval(timer);
+  }, [isBulkGenerating]);
 
   const handleApiError = (err: any) => {
     alert("生成出错: " + (err.message || "请求被拒绝。请检查网络或稍后再试。"));
@@ -73,7 +95,7 @@ const DirectorMode: React.FC<Props> = ({ project, onNext, onBack, userCoins, ded
       }
       setPages([...updatedPages]);
       // 短暂延迟避免 API 严格限流
-      await new Promise(r => setTimeout(r, 800));
+      await new Promise(r => setTimeout(r, 1200));
     }
 
     onNext({ pages: updatedPages });
@@ -176,17 +198,35 @@ const DirectorMode: React.FC<Props> = ({ project, onNext, onBack, userCoins, ded
   return (
     <div className="space-y-6 animate-in fade-in pb-32 relative w-full">
       {isBulkGenerating && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-xl z-[100] flex flex-col items-center justify-center p-8 text-center">
-           <div className="w-full max-w-md space-y-8 animate-in zoom-in-95">
-             <div className="w-24 h-24 border-8 border-[#EA6F23]/20 border-t-[#EA6F23] rounded-full animate-spin mx-auto"></div>
-             <div className="space-y-4">
-                <h3 className="text-3xl font-bold font-header text-white">正在魔法创作中...</h3>
-                <div className="w-full h-3 bg-white/10 rounded-full overflow-hidden">
-                   <div className="h-full bg-[#EA6F23] transition-all duration-500" style={{ width: `${bulkProgress}%` }}></div>
+        <div className="fixed inset-0 bg-black/85 backdrop-blur-2xl z-[100] flex flex-col items-center justify-center p-8 text-center">
+           <div className="w-full max-w-md space-y-10 animate-in zoom-in-95">
+             <div className="relative w-32 h-32 mx-auto">
+                <div className="absolute inset-0 border-8 border-[#EA6F23]/10 rounded-full"></div>
+                <div className="absolute inset-0 border-8 border-transparent border-t-[#EA6F23] rounded-full animate-spin"></div>
+                <div className="absolute inset-0 flex items-center justify-center">
+                   <i className="fas fa-magic text-4xl text-[#EA6F23] animate-pulse"></i>
                 </div>
-                <p className="text-white/60 font-bold uppercase tracking-widest text-xs">进度: {bulkProgress}% - 正在创作第 {activeIndex + 1} 页</p>
              </div>
-             <p className="text-orange-200 text-sm font-medium italic">“为了保证画质和风格统一，AI 正在逐页精修...”</p>
+             <div className="space-y-6">
+                <div className="space-y-2">
+                  <h3 className="text-3xl font-bold font-header text-white tracking-tight">{queueMsg}</h3>
+                  <div className="flex items-center justify-center gap-2">
+                     <span className="flex h-2 w-2 rounded-full bg-green-400 animate-ping"></span>
+                     <p className="text-white/40 font-black uppercase tracking-[0.2em] text-[10px]">当前正在排队出图中</p>
+                  </div>
+                </div>
+                
+                <div className="space-y-3">
+                   <div className="w-full h-3 bg-white/5 rounded-full overflow-hidden border border-white/10 p-[2px]">
+                      <div className="h-full bg-gradient-to-r from-orange-400 to-[#EA6F23] rounded-full transition-all duration-700 shadow-[0_0_20px_rgba(234,111,35,0.4)]" style={{ width: `${bulkProgress}%` }}></div>
+                   </div>
+                   <div className="flex justify-between text-[10px] font-black text-white/40 uppercase tracking-widest">
+                      <span>第 {activeIndex + 1} 页</span>
+                      <span>{bulkProgress}%</span>
+                   </div>
+                </div>
+             </div>
+             <p className="text-orange-200/60 text-sm font-medium italic leading-relaxed px-4">“为了保证画质和风格统一，AI 正在逐页精修。这可能需要一点时间，请保持开启此页面...”</p>
            </div>
         </div>
       )}

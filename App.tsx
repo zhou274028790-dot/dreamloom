@@ -241,7 +241,6 @@ const App: React.FC = () => {
                   <MenuBtn icon="fa-map" label={lang === 'zh' ? '阅读广场' : 'Plaza'} active={currentView === 'plaza'} onClick={() => { setCurrentView('plaza'); setIsMenuOpen(false); }} />
                   <div className="h-[1px] bg-[var(--border-color)] my-2"></div>
                   <MenuBtn icon="fa-user" label={lang === 'zh' ? '个人中心' : 'Profile'} active={currentView === 'profile'} onClick={() => { setCurrentView('profile'); setIsMenuOpen(false); }} />
-                  <MenuBtn icon="fa-sign-out-alt" label={lang === 'zh' ? '退出当前账号' : 'Logout'} active={false} onClick={handleLogout} />
                </div>
              )}
            </div>
@@ -253,7 +252,7 @@ const App: React.FC = () => {
           {currentView === 'login' ? <Login onLogin={handleLogin} onLogout={handleLogout} currentUser={user} lang={lang} /> : 
            currentView === 'plaza' ? <ReadingPlaza lang={lang} onUseStyle={(style) => { setProject(p => ({ ...p, visualStyle: style, currentStep: 'idea', id: Math.random().toString(36).substr(2, 9), pages: [] })); setCurrentView('studio'); }} onUseIdea={(idea) => { setProject(p => ({ ...p, originalIdea: idea, currentStep: 'idea', id: Math.random().toString(36).substr(2, 9), pages: [] })); setCurrentView('studio'); }} /> :
            currentView === 'brand' ? <BrandStory lang={lang} isDark={isDarkBg} /> :
-           currentView === 'profile' ? <MyProfile user={user} setUser={setUser} lang={lang} setLang={setLang} bgColor={bgColor} setBgColor={setBgColor} history={history} isDark={isDarkBg} /> :
+           currentView === 'profile' ? <MyProfile user={user} setUser={setUser} handleLogout={handleLogout} lang={lang} setLang={setLang} bgColor={bgColor} setBgColor={setBgColor} history={history} isDark={isDarkBg} /> :
            currentView === 'library' ? <BookLibrary history={history} onSelect={(b) => { setProject(b); setCurrentView('studio'); }} onDelete={async (id) => {
              await deleteProjectFromCloud(id);
              setHistory(h => h.filter(p => p.id !== id));
