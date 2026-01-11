@@ -4,7 +4,6 @@ import { StoryTemplate, StoryPage, VisualStyle } from "../types";
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
 
-// Fix: Added extractJson helper to parse and sanitize JSON from AI response text
 const extractJson = (text: string) => {
   try {
     const jsonMatch = text.match(/\{[\s\S]*\}/);
@@ -18,17 +17,15 @@ const extractJson = (text: string) => {
 
 /**
  * 核心升级：图片加载引擎 (The Loom Engine)
- * 采用多重路径尝试加载图片，解决 CORS 和网络抖动问题
+ * 锁定 1024*1024 处理规格，解决跨域失败问题
  */
 const prepareImageForAi = async (imgData: string, retryCount = 0): Promise<string> => {
   if (!imgData) throw new Error("无效的图片数据");
 
-  // 1. 如果已经是 Base64，直接截取返回
   if (imgData.startsWith('data:')) {
     return imgData.includes(',') ? imgData.split(',')[1] : imgData;
   }
 
-  // 2. 尝试使用 fetch 获取（带缓存策略）
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 8000);
@@ -55,16 +52,15 @@ const prepareImageForAi = async (imgData: string, retryCount = 0): Promise<strin
     console.warn(`Fetch image failed, trying fallback mode (Retry: ${retryCount})...`);
   }
 
-  // 3. 最终手段：通过 Invisible Image 对象加载
   try {
     return await processImageFromUrl(imgData);
   } catch (innerError) {
-    if (retryCount < 2) {
-      // 增加随机延迟后重试
-      await new Promise(r => setTimeout(r, 1000));
+    if (retryCount < 1) {
+      await new Promise(r => setTimeout(r, 500));
       return prepareImageForAi(imgData, retryCount + 1);
     }
-    throw new Error("图片加载失败，请检查网络或更换参考图。");
+    // 如果最终都失败了，抛出更友好的错误
+    throw new Error("AI 无法读取参考图，建议直接输入文字描述。");
   }
 };
 
@@ -72,28 +68,29 @@ const processImageFromUrl = (url: string): Promise<string> => {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.crossOrigin = "anonymous";
-    img.src = `${url}${url.includes('?') ? '&' : '?'}t=${Date.now()}`; // 强行刷新缓存
+    // 增加随机参数绕过可能的 CDN 缓存错误
+    img.src = url.startsWith('http') ? `${url}${url.includes('?') ? '&' : '?'}v=${Date.now()}` : url;
     img.onload = () => {
       const canvas = document.createElement('canvas');
-      const MAX_SIZE = 1024; // 升级为 1K 分辨率处理
-      let width = img.width;
-      let height = img.height;
-      if (width > height) { if (width > MAX_SIZE) { height *= MAX_SIZE / width; width = MAX_SIZE; } } 
-      else { if (height > MAX_SIZE) { width *= MAX_SIZE / height; height = MAX_SIZE; } }
-      canvas.width = width;
-      canvas.height = height;
+      const SIZE = 1024; // 锁定 1K
+      canvas.width = SIZE;
+      canvas.height = SIZE;
       const ctx = canvas.getContext('2d');
       if (!ctx) return reject(new Error("Canvas failure"));
       ctx.fillStyle = "#FFFFFF";
-      ctx.fillRect(0, 0, width, height);
+      ctx.fillRect(0, 0, SIZE, SIZE);
       try {
-        ctx.drawImage(img, 0, 0, width, height);
-        resolve(canvas.toDataURL('image/jpeg', 0.8).split(',')[1]);
+        // 强制以 Cover 模式绘制到 1024*1024
+        const scale = Math.max(SIZE / img.width, SIZE / img.height);
+        const x = (SIZE / 2) - (img.width / 2) * scale;
+        const y = (SIZE / 2) - (img.height / 2) * scale;
+        ctx.drawImage(img, x, y, img.width * scale, img.height * scale);
+        resolve(canvas.toDataURL('image/jpeg', 0.85).split(',')[1]);
       } catch (e) {
-        reject(new Error("Canvas Tainted - CORS Policy violation"));
+        reject(new Error("CORS Tainted Canvas"));
       }
     };
-    img.onerror = () => reject(new Error("Image Load Event Error"));
+    img.onerror = () => reject(new Error("Image element load error"));
   });
 };
 
@@ -107,21 +104,18 @@ const safetySettings = [
 const getStylePrompt = (style: VisualStyle, customDesc?: string): string => {
   if (style === VisualStyle.CUSTOM && customDesc) return customDesc;
   switch (style) {
-    case VisualStyle.WATERCOLOR: return "Soft watercolor illustration, wet-on-wet technique, beautiful bleeding effects, heavy cold-press watercolor paper texture.";
-    case VisualStyle.OIL_PAINTING: return "Expressionist oil painting, visible thick impasto brushstrokes, coarse canvas grain texture, rich oil pigments.";
-    case VisualStyle.VINTAGE: return "Retro mid-century storybook illustration, halftone dot texture, aged paper grain, warm nostalgic color palette.";
-    case VisualStyle.FLAT_ART: return "Artistic flat vector illustration, organic paper grain noise, subtle textures, soft minimalist characters.";
-    case VisualStyle.GHIBLI: return "Studio Ghibli style, lush hand-painted background, cinematic lighting, nostalgic anime aesthetic.";
-    case VisualStyle.PIXAR_3D: return "3D CGI character design, Disney Pixar style, soft subsurface scattering, high quality digital art.";
-    case VisualStyle.CRAYON: return "Child-like crayon drawing, waxy texture, heavy paper tooth grain, bright playful coloring.";
-    case VisualStyle.PAPER_CUT: return "Layered paper-cut collage art, recycled fiber paper texture, distinct drop shadows for depth.";
+    case VisualStyle.WATERCOLOR: return "Soft watercolor illustration, wet-on-wet technique, beautiful bleeding effects, cold-press paper texture.";
+    case VisualStyle.OIL_PAINTING: return "Classic oil painting, thick impasto brushstrokes, rich textures, fine art quality.";
+    case VisualStyle.VINTAGE: return "1950s retro children's book illustration, halftone texture, warm nostalgic palette.";
+    case VisualStyle.FLAT_ART: return "Modern artistic flat illustration, subtle paper grain, minimalist shapes.";
+    case VisualStyle.GHIBLI: return "Studio Ghibli anime style, hand-painted backgrounds, soft cinematic lighting.";
+    case VisualStyle.PIXAR_3D: return "3D Disney Pixar style character, soft studio lighting, high-end CGI.";
+    case VisualStyle.CRAYON: return "Hand-drawn crayon art, waxy texture, vibrant playful colors, paper tooth grain.";
+    case VisualStyle.PAPER_CUT: return "Artistic paper-cut collage, layered depth, subtle drop shadows, recycled paper texture.";
     default: return style;
   }
 };
 
-/**
- * 绘本页面生成：升级为 gemini-3-pro-image-preview
- */
 export const generateSceneImage = async (
   pageText: string, 
   visualPrompt: string, 
@@ -133,26 +127,25 @@ export const generateSceneImage = async (
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const stylePrompt = getStylePrompt(style, styleDesc);
   
-  // 容错处理：如果角色图加载失败，尝试只用文字生成
   let parts: any[] = [];
   try {
     const charBase64 = await prepareImageForAi(characterImg);
     parts.push({ inlineData: { data: charBase64, mimeType: 'image/jpeg' } });
   } catch (e) {
-    console.error("Warning: Character image loading failed, proceeding with text-only.", e);
+    console.warn("Character image load failed, falling back to text only");
   }
 
-  parts.push({ text: `consistent children's book illustration. Character description: ${characterDesc}. Style: ${stylePrompt}. Scene action: ${visualPrompt}. Narrative context: ${pageText}. High quality 2K masterpiece, vivid colors, no text labels, no watermark.` });
+  parts.push({ text: `professional children's book illustration. 1024x1024. Character: ${characterDesc}. Style: ${stylePrompt}. Action: ${visualPrompt}. Narrative: ${pageText}. No text, no frames, masterpiece quality.` });
   
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-3-pro-image-preview', // 升级到专业绘本级模型
+      model: 'gemini-3-pro-image-preview', 
       contents: { parts },
       config: { 
         safetySettings,
         imageConfig: {
           aspectRatio: "1:1",
-          imageSize: "1K" // 默认 1K，如果配额足够会自动提升画质
+          imageSize: "1K" // 锁定 1K 分辨率 (1024x1024)
         }
       }
     });
@@ -160,13 +153,12 @@ export const generateSceneImage = async (
     for (const part of response.candidates?.[0]?.content?.parts || []) {
       if (part.inlineData) return `data:image/jpeg;base64,${part.inlineData.data}`;
     }
-    throw new Error("AI did not return image data");
+    throw new Error("AI returned no image");
   } catch (error) {
-    throw new Error("生成引擎繁忙 (Error: " + error.message + ")");
+    throw new Error("引擎繁忙 ( " + error.message + " )");
   }
 };
 
-// Fix: Added analyzeStyleImage function to identify visual characteristics of a reference image
 export const analyzeStyleImage = async (imageUrl: string): Promise<string> => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const base64 = await prepareImageForAi(imageUrl);
@@ -177,13 +169,12 @@ export const analyzeStyleImage = async (imageUrl: string): Promise<string> => {
       contents: {
         parts: [
           { inlineData: { data: base64, mimeType: 'image/jpeg' } },
-          { text: "Describe the artistic style of this image in detail for a professional illustrator prompt. Keep it concise." }
+          { text: "Describe the artistic style of this image for an illustrator. Concise, focusing on medium, line, and color." }
         ]
       }
     });
     return response.text?.trim() || "";
   } catch (error) {
-    console.error("Style analysis failed", error);
     return "";
   }
 };
@@ -210,7 +201,7 @@ export const finalizeVisualScript = async (
       contents: {
         parts: [
           { inlineData: { data: charBase64, mimeType: 'image/jpeg' } },
-          { text: "Detailed visual description of this character for a professional illustrator. Summarize in one short Chinese sentence." }
+          { text: "Identify key visual traits of this character. One short Chinese sentence." }
         ]
       }
     });
@@ -218,12 +209,12 @@ export const finalizeVisualScript = async (
 
     const scriptResponse = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
-      contents: `Character: ${analyzedDesc}, Style: ${stylePrompt}. Task: Create vivid, storyboard-style visual prompts for each scene of a 1:1 square picture book. Scenes: ${pages.map(p => p.text).join('|')}. Return JSON ONLY: {updatedPages: [{text, visualPrompt}]}`,
+      contents: `Character: ${analyzedDesc}, Style: ${stylePrompt}. Scenes: ${pages.map(p => p.text).join('|')}. Return JSON ONLY: {updatedPages: [{text, visualPrompt}]}`,
       config: { responseMimeType: "application/json" }
     });
 
     const data = extractJson(scriptResponse.text);
-    if (!data || !data.updatedPages) throw new Error("JSON Extract failed");
+    if (!data) throw new Error("JSON Error");
 
     const finalPages = pages.map((p, idx) => ({
       ...p,
@@ -234,7 +225,7 @@ export const finalizeVisualScript = async (
 
     return { pages: finalPages, analyzedCharacterDesc: analyzedDesc, analyzedStyleDesc };
   } catch (error) {
-    throw new Error("剧本解析失败: " + error.message);
+    throw new Error("Script error: " + error.message);
   }
 };
 
@@ -258,21 +249,21 @@ export const editPageImage = async (
         parts: [
           { inlineData: { data: pageBase64, mimeType: 'image/jpeg' } },
           { inlineData: { data: charBase64, mimeType: 'image/jpeg' } },
-          { text: `Modify the first image based on: ${instruction}. Ensure character matches second image: ${characterDesc}. Style: ${stylePrompt}. High quality 2K output.` }
+          { text: `Edit first image: ${instruction}. Consistency with second image: ${characterDesc}. Style: ${stylePrompt}. 1024x1024.` }
         ]
       },
       config: { 
         safetySettings,
-        imageConfig: { aspectRatio: "1:1" }
+        imageConfig: { aspectRatio: "1:1", imageSize: "1K" }
       }
     });
     
     for (const part of response.candidates?.[0]?.content?.parts || []) {
       if (part.inlineData) return `data:image/jpeg;base64,${part.inlineData.data}`;
     }
-    throw new Error("Edit engine error");
+    throw new Error("Edit failed");
   } catch (error) {
-    throw new Error("微调失败: " + error.message);
+    throw new Error(error.message);
   }
 };
 
@@ -284,13 +275,13 @@ export const generateCharacterOptions = async (description: string, style: Visua
     const imgBase64 = await prepareImageForAi(image);
     parts.push({ inlineData: { data: imgBase64, mimeType: 'image/jpeg' } });
   }
-  parts.push({ text: `Character design sheet: ${description}. Multiple poses, front/side/back views. Consistent character, soft art style. Background: simple solid light color. Style: ${stylePrompt}.` });
+  parts.push({ text: `Professional character design sheet: ${description}. Multiple poses. Solid light background. Style: ${stylePrompt}. 1024x1024.` });
   
   try {
     const response = await ai.models.generateContent({ 
       model: 'gemini-3-pro-image-preview', 
       contents: { parts }, 
-      config: { safetySettings, imageConfig: { aspectRatio: "1:1" } } 
+      config: { safetySettings, imageConfig: { aspectRatio: "1:1", imageSize: "1K" } } 
     });
     const images: string[] = [];
     for (const part of response.candidates?.[0]?.content?.parts || []) {
@@ -298,7 +289,7 @@ export const generateCharacterOptions = async (description: string, style: Visua
     }
     return images;
   } catch (error) {
-    throw new Error("形象引擎响应异常: " + error.message);
+    throw new Error(error.message);
   }
 };
 
@@ -311,7 +302,7 @@ export const generateStoryOutline = async (idea: string, template: StoryTemplate
       parts.push({ inlineData: { data: imgBase64, mimeType: "image/jpeg" } });
     } catch(e) {}
   }
-  parts.push({ text: `Create a captivating 12-page children's picture book script based on: "${idea}". Template: ${template}. Language: Chinese. Target Audience: Kids 3-8. Return JSON ONLY: {title, pages: [{type, text}]}` });
+  parts.push({ text: `Children's story script. Topic: "${idea}". Template: ${template}. Language: Chinese. 12 pages. Return JSON: {title, pages: [{type, text}]}` });
   
   try {
     const response = await ai.models.generateContent({
@@ -321,7 +312,7 @@ export const generateStoryOutline = async (idea: string, template: StoryTemplate
     });
     
     const data = extractJson(response.text);
-    if (!data || !data.pages) throw new Error("JSON parse error");
+    if (!data) throw new Error("JSON Parse Error");
 
     return { 
       title: data.title, 
@@ -332,6 +323,6 @@ export const generateStoryOutline = async (idea: string, template: StoryTemplate
       })) 
     };
   } catch (err) {
-    throw new Error("故事大纲引擎繁忙，请稍后再试。");
+    throw new Error("AI 故事引擎响应异常");
   }
 };
