@@ -83,7 +83,7 @@ const App: React.FC = () => {
           setUser({ ...profile, isLoggedIn: true });
           const projects = await loadUserProjects(fbUser.uid);
           setHistory(projects);
-          // 移除自动跳转：仅保存状态，不改变视图
+          // 这里不再自动跳转 setCurrentView，保持在登录页状态，除非用户点击
         }
       } else {
         setFirebaseUid(null);
@@ -104,7 +104,6 @@ const App: React.FC = () => {
   }, [bgColor]);
 
   useEffect(() => {
-    // 巧克力色深色模式增强：使 Card 有轻微发光和更高对比
     const cardBg = isDarkBg ? 'rgba(255, 255, 255, 0.15)' : '#FFFFFF';
     const borderColor = isDarkBg ? 'rgba(255, 255, 255, 0.2)' : 'rgba(234, 111, 35, 0.1)';
     const textMain = isDarkBg ? '#FFFFFF' : '#2C211D';
@@ -173,6 +172,7 @@ const App: React.FC = () => {
 
   const handleLogout = async () => {
     await signOut(auth);
+    setUser(p => ({ ...p, isLoggedIn: false }));
     setCurrentView('login');
     setIsMenuOpen(false);
   };
