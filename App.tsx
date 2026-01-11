@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { onAuthStateChanged, signInAnonymously } from "firebase/auth";
+import { onAuthStateChanged, signInAnonymously, signOut } from "firebase/auth";
 import { auth } from "./services/firebase";
 import { BookProject, StoryTemplate, VisualStyle, AppView, Language, User } from './types';
 import { getUserProfile, syncUserProfile, saveProjectToCloud, loadUserProjects, deleteProjectFromCloud } from './services/dataService';
@@ -83,9 +83,12 @@ const App: React.FC = () => {
           setUser({ ...profile, isLoggedIn: true });
           const projects = await loadUserProjects(fbUser.uid);
           setHistory(projects);
-          // 仅当已经登录且在登录页时，自动进入首页，否则保持原样
-          if (currentView === 'login') setCurrentView('library');
+          // 移除自动跳转：仅保存状态，不改变视图
         }
+      } else {
+        setFirebaseUid(null);
+        setUser(prev => ({ ...prev, isLoggedIn: false }));
+        setCurrentView('login');
       }
     });
     return () => unsubscribe();
@@ -101,18 +104,18 @@ const App: React.FC = () => {
   }, [bgColor]);
 
   useEffect(() => {
-    // 增强深色模式配色对比
-    const cardBg = isDarkBg ? 'rgba(255, 255, 255, 0.12)' : '#FFFFFF';
-    const borderColor = isDarkBg ? 'rgba(255, 255, 255, 0.15)' : 'rgba(234, 111, 35, 0.1)';
+    // 巧克力色深色模式增强：使 Card 有轻微发光和更高对比
+    const cardBg = isDarkBg ? 'rgba(255, 255, 255, 0.15)' : '#FFFFFF';
+    const borderColor = isDarkBg ? 'rgba(255, 255, 255, 0.2)' : 'rgba(234, 111, 35, 0.1)';
     const textMain = isDarkBg ? '#FFFFFF' : '#2C211D';
-    const textSub = isDarkBg ? 'rgba(255, 255, 255, 0.6)' : 'rgba(44, 33, 29, 0.5)';
+    const textSub = isDarkBg ? 'rgba(255, 255, 255, 0.65)' : 'rgba(44, 33, 29, 0.5)';
 
     document.documentElement.style.setProperty('--bg-paper', bgColor);
     document.documentElement.style.setProperty('--text-main', textMain);
     document.documentElement.style.setProperty('--text-sub', textSub);
     document.documentElement.style.setProperty('--card-bg', cardBg);
     document.documentElement.style.setProperty('--border-color', borderColor);
-    document.documentElement.style.setProperty('--card-shadow', isDarkBg ? '0 15px 45px rgba(0,0,0,0.5)' : '0 4px 20px rgba(0, 0, 0, 0.05)');
+    document.documentElement.style.setProperty('--card-shadow', isDarkBg ? '0 20px 60px rgba(0,0,0,0.6)' : '0 4px 20px rgba(0, 0, 0, 0.05)');
   }, [bgColor, isDarkBg]);
 
   const updateProject = async (updates: Partial<BookProject>) => {
@@ -168,6 +171,12 @@ const App: React.FC = () => {
     }
   };
 
+  const handleLogout = async () => {
+    await signOut(auth);
+    setCurrentView('login');
+    setIsMenuOpen(false);
+  };
+
   if (hasKey === false) {
     return (
       <div className="min-h-screen bg-[#FDF6F0] flex flex-col items-center justify-center p-6 text-center">
@@ -190,10 +199,10 @@ const App: React.FC = () => {
   return (
     <div className={`min-h-screen flex flex-col bg-[var(--bg-paper)] transition-all duration-500`} style={{ color: 'var(--text-main)' }}>
       {user.isLoggedIn && currentView !== 'login' && (
-        <header className={`bg-[var(--card-bg)] backdrop-blur-2xl border-b border-[var(--border-color)] py-3 px-4 md:px-6 sticky top-0 z-[60] shadow-sm`}>
+        <header className={`bg-[var(--card-bg)] backdrop-blur-3xl border-b border-[var(--border-color)] py-3 px-4 md:px-6 sticky top-0 z-[60] shadow-sm`}>
            <div className="max-w-7xl mx-auto flex justify-between items-center relative">
-             <div className="flex items-center gap-3 cursor-pointer" onClick={() => setCurrentView('library')}>
-                <div className="w-10 h-10 bg-[#EA6F23] rounded-2xl flex items-center justify-center shadow-lg flex-shrink-0 transform rotate-3">
+             <div className="flex items-center gap-3 cursor-pointer group" onClick={() => setCurrentView('library')}>
+                <div className="w-10 h-10 bg-[#EA6F23] rounded-2xl flex items-center justify-center shadow-lg flex-shrink-0 transform rotate-3 transition-transform group-hover:rotate-0">
                   <i className="fas fa-magic text-white text-sm"></i>
                 </div>
                 <h1 className="text-lg md:text-xl font-header font-bold tracking-tight">DreamLoom</h1>
@@ -216,6 +225,7 @@ const App: React.FC = () => {
                   <MenuBtn icon="fa-map" label={lang === 'zh' ? '阅读广场' : 'Plaza'} active={currentView === 'plaza'} onClick={() => { setCurrentView('plaza'); setIsMenuOpen(false); }} />
                   <div className="h-[1px] bg-[var(--border-color)] my-2"></div>
                   <MenuBtn icon="fa-user" label={lang === 'zh' ? '个人中心' : 'Profile'} active={currentView === 'profile'} onClick={() => { setCurrentView('profile'); setIsMenuOpen(false); }} />
+                  <MenuBtn icon="fa-sign-out-alt" label={lang === 'zh' ? '注销登录' : 'Logout'} active={false} onClick={handleLogout} />
                </div>
              )}
            </div>
