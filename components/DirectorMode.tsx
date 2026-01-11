@@ -10,9 +10,10 @@ interface Props {
   userCoins: number;
   deductCoins: (amount: number) => boolean;
   lang: Language;
+  isDark?: boolean;
 }
 
-const DirectorMode: React.FC<Props> = ({ project, onNext, onBack, userCoins, deductCoins, lang }) => {
+const DirectorMode: React.FC<Props> = ({ project, onNext, onBack, userCoins, deductCoins, lang, isDark }) => {
   const [pages, setPages] = useState<StoryPage[]>(project.pages);
   const [activeIndex, setActiveIndex] = useState(0);
   const [isAddingPages, setIsAddingPages] = useState(false);
@@ -163,10 +164,7 @@ const DirectorMode: React.FC<Props> = ({ project, onNext, onBack, userCoins, ded
 
   return (
     <div className="space-y-4 animate-in fade-in duration-500 pb-28 relative w-full">
-      {/* 核心重构：顶部区域 */}
       <div className="px-4 md:px-6 pt-4 space-y-6">
-        
-        {/* 第一行：标题 vs 角色风格 - Stack on Mobile */}
         <div className="flex flex-col md:flex-row justify-between items-start gap-4">
           <div className="space-y-1">
             <h2 className="text-xl md:text-3xl font-header font-bold" style={{ color: 'var(--text-main)' }}>3. 导演模式</h2>
@@ -176,7 +174,6 @@ const DirectorMode: React.FC<Props> = ({ project, onNext, onBack, userCoins, ded
           </div>
 
           <div className="flex items-center gap-4 w-full md:w-auto justify-end">
-             {/* 角色头像与链接 */}
              <div 
                onClick={() => setShowCharacterDetails(!showCharacterDetails)}
                className="relative cursor-pointer group"
@@ -196,7 +193,6 @@ const DirectorMode: React.FC<Props> = ({ project, onNext, onBack, userCoins, ded
                 )}
              </div>
 
-             {/* 风格展示 */}
              <div className="flex flex-col">
                <span className="text-[10px] font-black opacity-20 uppercase tracking-[0.2em] leading-none mb-1">ART STYLE</span>
                <div className="flex items-center gap-1.5 text-sm font-black text-[#EA6F23]">
@@ -207,7 +203,6 @@ const DirectorMode: React.FC<Props> = ({ project, onNext, onBack, userCoins, ded
           </div>
         </div>
 
-        {/* 第二行：进度条 vs 继续冒险 - Stack on Mobile */}
         <div className="flex flex-col md:flex-row items-center gap-4">
           <div className="w-full md:w-auto bg-[var(--card-bg)] px-5 py-2.5 rounded-2xl flex items-center justify-between md:justify-start gap-4 shadow-inner border border-[var(--border-color)]">
              <span className="text-[10px] font-black opacity-30 uppercase tracking-[0.2em]">PROGRESS</span>
@@ -228,7 +223,6 @@ const DirectorMode: React.FC<Props> = ({ project, onNext, onBack, userCoins, ded
         </div>
       </div>
 
-      {/* 主展示区 */}
       <div className="relative px-4 overflow-hidden mt-6">
           <button 
             onClick={() => setActiveIndex(prev => Math.max(0, prev - 1))} 
@@ -305,7 +299,6 @@ const DirectorMode: React.FC<Props> = ({ project, onNext, onBack, userCoins, ded
           </div>
       </div>
 
-      {/* 缩略图导航廊 */}
       <div className="px-4 md:px-6 mt-2">
           <div ref={thumbnailScrollRef} className="flex gap-4 overflow-x-auto py-6 scroll-smooth no-scrollbar">
             {pages.map((page, idx) => (
@@ -326,7 +319,6 @@ const DirectorMode: React.FC<Props> = ({ project, onNext, onBack, userCoins, ded
           </div>
       </div>
 
-      {/* 细节修正 Modal */}
       {polishingIndex !== null && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-6">
           <div className="bg-[var(--card-bg)] w-full max-w-sm rounded-[3rem] shadow-2xl p-8 space-y-6 animate-in zoom-in-95 border border-[var(--border-color)]">
@@ -352,7 +344,6 @@ const DirectorMode: React.FC<Props> = ({ project, onNext, onBack, userCoins, ded
         </div>
       )}
 
-      {/* 底部按钮栏 */}
       <div className="fixed bottom-0 left-0 right-0 bg-[var(--card-bg)]/80 backdrop-blur-xl border-t border-[var(--border-color)] p-4 md:p-6 z-[60] flex flex-col md:flex-row gap-4 justify-between items-center max-w-7xl mx-auto lg:rounded-t-[4rem] lg:px-16 shadow-2xl pb-safe">
         <button 
           onClick={onBack} 

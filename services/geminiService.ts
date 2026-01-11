@@ -1,14 +1,14 @@
 
-import { GoogleGenAI, Type } from "@google/genai";
+import { GoogleGenAI, Type, HarmCategory, HarmBlockThreshold } from "@google/genai";
 import { StoryTemplate, StoryPage, VisualStyle } from "../types";
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
 
 const safetySettings = [
-  { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
-  { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
-  { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_NONE" },
-  { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" },
+  { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
+  { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
+  { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE },
+  { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE },
 ];
 
 const getStylePrompt = (style: VisualStyle, customDesc?: string): string => {
@@ -77,7 +77,7 @@ export const finalizeVisualScript = async (
       contents: {
         parts: [
           { inlineData: { data: characterSeedImage.split(',')[1], mimeType: 'image/png' } },
-          { text: `你是一名资深角色设计师。请仔细观察这张角色设计图，提取出极其详尽的物理特征描述。
+          { text: `你是一名角色设计师。请仔细观察这张角色设计图，提取出其详尽的物理特征描述。
                   输出要求：一段简洁但精准的中文特征描述。` }
         ]
       }
