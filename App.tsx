@@ -22,6 +22,7 @@ const App: React.FC = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [showReward, setShowReward] = useState(false);
   const [firebaseUid, setFirebaseUid] = useState<string | null>(null);
+  const [hasKey, setHasKey] = useState<boolean | null>(null);
 
   const [user, setUser] = useState<User>({
     isLoggedIn: false,
@@ -44,8 +45,27 @@ const App: React.FC = () => {
 
   const [history, setHistory] = useState<BookProject[]>([]);
 
+  // 检查 API Key 选择状态
   useEffect(() => {
-    // 监听 Auth 状态
+    const checkKey = async () => {
+      if (window.aistudio) {
+        const selected = await window.aistudio.hasSelectedApiKey();
+        setHasKey(selected);
+      } else {
+        setHasKey(true); // 如果不在 AI Studio 环境，假定 Key 已配置
+      }
+    };
+    checkKey();
+  }, []);
+
+  const handleOpenKeySelector = async () => {
+    if (window.aistudio) {
+      await window.aistudio.openSelectKey();
+      setHasKey(true); // 按照规范，假设选择成功
+    }
+  };
+
+  useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
       if (fbUser) {
         setFirebaseUid(fbUser.uid);
@@ -117,7 +137,6 @@ const App: React.FC = () => {
 
   const handleLogin = async (username: string, method: string) => {
     try {
-      // 尝试匿名登录
       const cred = await signInAnonymously(auth);
       const initialCoins = 80;
       const newUser = { username, coins: initialCoins, isFirstRecharge: true, isLoggedIn: true };
@@ -128,14 +147,28 @@ const App: React.FC = () => {
       setCurrentView('studio');
     } catch (e: any) {
       console.error("Login Error:", e);
-      // 提供更详细的错误原因，尤其是针对 403 权限问题
-      if (e.code === 'auth/operation-not-allowed') {
-        alert("登录失败：请在 Firebase 控制台的 Authentication 选项卡中启用 'Anonymous' (匿名) 登录方式。");
-      } else {
-        alert(`登录失败 (${e.code || 'Network Error'}): 请检查网络或 Firebase 配置。`);
-      }
+      alert(`登录失败: 请检查网络并确保 Firebase 匿名登录已开启。`);
     }
   };
+
+  // 如果没有 API Key，显示一个引导层
+  if (hasKey === false) {
+    return (
+      <div className="min-h-screen bg-[#FDF6F0] flex flex-col items-center justify-center p-6 text-center">
+        <div className="max-w-md w-full card-dynamic p-10 rounded-[3rem] shadow-2xl space-y-8 animate-in zoom-in-95">
+           <div className="w-20 h-20 bg-orange-100 text-orange-600 rounded-[2rem] flex items-center justify-center text-3xl mx-auto">
+              <i className="fas fa-key"></i>
+           </div>
+           <div className="space-y-2">
+              <h2 className="text-2xl font-bold font-header">激活造梦能量</h2>
+              <p className="opacity-60 text-sm">由于使用了高级 AI 模型，您需要先关联一个付费项目的 API Key 才能开始创作。</p>
+              <p className="text-[10px] text-blue-500 font-bold underline cursor-pointer" onClick={() => window.open('https://ai.google.dev/gemini-api/docs/billing', '_blank')}>查看计费说明</p>
+           </div>
+           <button onClick={handleOpenKeySelector} className="btn-candy w-full py-4 text-white rounded-2xl font-bold shadow-xl">选择 API 密钥</button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={`min-h-screen flex flex-col bg-[var(--bg-paper)] transition-all duration-500`} style={{ color: 'var(--text-main)' }}>
