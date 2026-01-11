@@ -4,7 +4,8 @@ import { defineConfig } from 'vite';
 export default defineConfig({
   base: './', 
   define: {
-    'process.env.API_KEY': JSON.stringify(process.env.API_KEY),
+    // 兼容用户在 Vercel 设置的 DreamLoom 变量名
+    'process.env.API_KEY': JSON.stringify(process.env.API_KEY || process.env.DreamLoom),
     'process.env.FIREBASE_API_KEY': JSON.stringify(process.env.FIREBASE_API_KEY),
     'process.env.FIREBASE_AUTH_DOMAIN': JSON.stringify(process.env.FIREBASE_AUTH_DOMAIN),
     'process.env.FIREBASE_PROJECT_ID': JSON.stringify(process.env.FIREBASE_PROJECT_ID),

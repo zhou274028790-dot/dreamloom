@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { BookProject, StoryPage, VisualStyle, Language } from '../types';
-import { generateSceneImage, editPageImage, generateNextPageSuggestion } from '../services/geminiService';
+import { generateSceneImage, editPageImage } from '../services/geminiService';
 import { uploadImageToCloud } from '../services/dataService';
 
 interface Props {
@@ -17,18 +17,25 @@ interface Props {
 const DirectorMode: React.FC<Props> = ({ project, onNext, onBack, userCoins, deductCoins, lang, isDark }) => {
   const [pages, setPages] = useState<StoryPage[]>(project.pages);
   const [activeIndex, setActiveIndex] = useState(0);
-  const [isAddingPages, setIsAddingPages] = useState(false);
   const [polishingIndex, setPolishingIndex] = useState<number | null>(null);
   const [polishInstruction, setPolishInstruction] = useState('');
-  const [showCharacterDetails, setShowCharacterDetails] = useState(false);
   
-  const thumbnailScrollRef = useRef<HTMLDivElement>(null);
-
   useEffect(() => {
     if (project.pages.length > 0 && pages.length === 0) {
       setPages(project.pages);
     }
   }, [project.pages]);
+
+  const handleApiError = (err: any) => {
+    console.error("API Error:", err);
+    if (err.message === "KEY_EXPIRED") {
+      alert("检测到 API 密钥失效或找不到项目，请点击页面顶部的‘选择 API 密钥’重新授权。");
+      // 触发强制重新选 key 的 UI 逻辑（如果 App.tsx 监听了状态）
+      window.location.reload(); 
+    } else {
+      alert("生图失败: " + (err.message || "服务器繁忙，请稍后再试。"));
+    }
+  };
 
   const handleRedraw = async (index: number) => {
     const page = pages[index];
@@ -51,16 +58,15 @@ const DirectorMode: React.FC<Props> = ({ project, onNext, onBack, userCoins, ded
         project.styleDescription
       );
       
-      // Upload to Firebase Storage immediately
       const cloudUrl = await uploadImageToCloud(`projects/${project.id}/page_${index}_${Date.now()}.png`, base64Img);
       
       const newPages = [...pages];
       newPages[index] = { ...newPages[index], imageUrl: cloudUrl, isGenerating: false };
       setPages(newPages);
-      onNext({ pages: newPages }); // Persist to Firestore
+      onNext({ pages: newPages });
       
     } catch (err) {
-      alert("Redraw failed.");
+      handleApiError(err);
       setPages(prev => {
         const updated = [...prev];
         updated[index] = { ...updated[index], isGenerating: false };
@@ -101,10 +107,10 @@ const DirectorMode: React.FC<Props> = ({ project, onNext, onBack, userCoins, ded
       const newPages = [...pages];
       newPages[index] = { ...newPages[index], imageUrl: cloudUrl, isGenerating: false };
       setPages(newPages);
-      onNext({ pages: newPages }); // Persist to Firestore
+      onNext({ pages: newPages });
 
     } catch (err) {
-      alert("Polish failed.");
+      handleApiError(err);
       setPages(prev => {
         const updated = [...prev];
         updated[index] = { ...updated[index], isGenerating: false };
@@ -115,10 +121,8 @@ const DirectorMode: React.FC<Props> = ({ project, onNext, onBack, userCoins, ded
     }
   };
 
-  // ... rest of UI logic remains same, but we ensure onNext is called periodically ...
   return (
     <div className="space-y-4 animate-in fade-in duration-500 pb-28 relative w-full">
-      {/* (Keep existing DirectorMode UI code here) */}
       <div className="px-4 md:px-6 pt-4 space-y-6">
         <div className="flex justify-between items-center">
           <h2 className="text-xl md:text-3xl font-header font-bold" style={{ color: 'var(--text-main)' }}>3. 导演模式</h2>
@@ -126,11 +130,9 @@ const DirectorMode: React.FC<Props> = ({ project, onNext, onBack, userCoins, ded
              <img src={project.characterSeedImage} className="w-full h-full object-cover" />
           </div>
         </div>
-        {/* Progress and controls... */}
       </div>
 
       <div className="relative px-4 overflow-hidden mt-6">
-          {/* Main viewport for drawing and editing pages... (Keep original JSX) */}
           <div className="flex transition-transform duration-500 ease-out" style={{ transform: `translateX(-${activeIndex * 100}%)` }}>
             {pages.map((page, idx) => (
               <div key={page.id} className="min-w-full flex flex-col items-center gap-6 px-4">
@@ -158,13 +160,17 @@ const DirectorMode: React.FC<Props> = ({ project, onNext, onBack, userCoins, ded
           </div>
       </div>
       
-      {/* Bottom Nav Bar ... */}
+      <div className="max-w-lg mx-auto px-4 mt-8 flex justify-center gap-2 overflow-x-auto no-scrollbar py-2">
+        {pages.map((_, i) => (
+          <button key={i} onClick={() => setActiveIndex(i)} className={`w-3 h-3 rounded-full transition-all flex-shrink-0 ${i === activeIndex ? 'bg-[#EA6F23] w-8' : 'bg-[var(--text-sub)] opacity-20'}`}></button>
+        ))}
+      </div>
+
       <div className="fixed bottom-0 left-0 right-0 bg-white/80 backdrop-blur p-4 border-t flex justify-between items-center max-w-7xl mx-auto rounded-t-3xl shadow-2xl z-50">
         <button onClick={onBack} className="px-6 py-3 font-bold opacity-50">返回角色</button>
         <button onClick={() => onNext({ currentStep: 'press' })} className="btn-candy px-10 py-4 text-white rounded-2xl font-bold shadow-xl">预览与订购</button>
       </div>
       
-      {/* Polishing Modal ... */}
       {polishingIndex !== null && (
         <div className="fixed inset-0 bg-black/60 z-[100] flex items-center justify-center p-6">
           <div className="bg-white w-full max-w-sm rounded-[2rem] p-8 space-y-6">

@@ -15,19 +15,6 @@ import BrandStory from './components/BrandStory';
 import MyProfile from './components/MyProfile';
 import Login from './components/Login';
 
-// 修复 TypeScript 构建报错：声明全局 aistudio 接口
-// Ensure the AIStudio interface is properly declared to match project-wide type expectations.
-interface AIStudio {
-  hasSelectedApiKey: () => Promise<boolean>;
-  openSelectKey: () => Promise<void>;
-}
-
-declare global {
-  interface Window {
-    aistudio: AIStudio;
-  }
-}
-
 const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<AppView>('login');
   const [lang, setLang] = useState<Language>('zh');
@@ -58,35 +45,36 @@ const App: React.FC = () => {
 
   const [history, setHistory] = useState<BookProject[]>([]);
 
-  // 检查 API Key 状态，如果环境变量 process.env.API_KEY 为空，则需要用户手动选 Key
+  // 检查 API Key 状态
   useEffect(() => {
     const checkKey = async () => {
-      // 优先检查环境变量
-      if (typeof process !== 'undefined' && process.env.API_KEY) {
+      // 1. 检查环境变量注入（Vite 会在构建时处理）
+      if (process.env.API_KEY && process.env.API_KEY !== "undefined" && process.env.API_KEY.length > 5) {
         setHasKey(true);
         return;
       }
       
-      // 如果环境变量没有，则尝试通过 aistudio 弹窗选择
-      if (window.aistudio) {
+      // 2. 检查 aistudio 运行环境（使用 any 绕过 TS 检查以确保部署成功）
+      const win = window as any;
+      if (win.aistudio) {
         try {
-          const selected = await window.aistudio.hasSelectedApiKey();
+          const selected = await win.aistudio.hasSelectedApiKey();
           setHasKey(selected);
         } catch (e) {
           setHasKey(false);
         }
       } else {
-        // 在普通浏览器环境下，如果没配环境变量也没 aistudio，默认通过（后续调用会报原始错误）
-        setHasKey(true); 
+        // 如果环境变量存在（即使是打包后的变量），也算有 Key
+        setHasKey(!!process.env.API_KEY); 
       }
     };
     checkKey();
   }, []);
 
   const handleOpenKeySelector = async () => {
-    if (window.aistudio) {
-      await window.aistudio.openSelectKey();
-      // 假设用户点击后已完成选择，强制进入 App
+    const win = window as any;
+    if (win.aistudio) {
+      await win.aistudio.openSelectKey();
       setHasKey(true);
     }
   };
@@ -177,7 +165,6 @@ const App: React.FC = () => {
     }
   };
 
-  // 渲染 Key 选择引导
   if (hasKey === false) {
     return (
       <div className="min-h-screen bg-[#FDF6F0] flex flex-col items-center justify-center p-6 text-center">
@@ -186,9 +173,8 @@ const App: React.FC = () => {
               <i className="fas fa-key"></i>
            </div>
            <div className="space-y-2">
-              <h2 className="text-2xl font-bold font-header">关联 API 密钥</h2>
-              <p className="opacity-60 text-sm font-medium">您已经有了付费密钥。为了在 App 中调用 Gemini 3 模型，请点击下方按钮并从列表中选择一个已关联付费项目的 Key。</p>
-              <p className="text-[10px] text-blue-500 font-bold underline cursor-pointer" onClick={() => window.open('https://ai.google.dev/gemini-api/docs/billing', '_blank')}>计费说明文档</p>
+              <h2 className="text-2xl font-bold font-header">关联密钥以开启创作</h2>
+              <p className="opacity-60 text-sm font-medium">监测到您当前没有激活 API Key。如果您在 Vercel 设置了变量，请确保名称为 API_KEY。或者点击下方按钮手动选择。</p>
            </div>
            <button onClick={handleOpenKeySelector} className="btn-candy w-full py-4 text-white rounded-2xl font-bold shadow-xl">
              <i className="fas fa-external-link-alt mr-2"></i> 选择 API 密钥
