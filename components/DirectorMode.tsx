@@ -50,6 +50,8 @@ const DirectorMode: React.FC<Props> = ({ project, onNext, onBack, userCoins, ded
   const handleRedraw = async (index: number) => {
     const page = pages[index];
     if (page.isGenerating) return;
+    
+    // 预扣费校验
     if (!deductCoins(5)) return;
 
     setPages(prev => {
@@ -72,7 +74,9 @@ const DirectorMode: React.FC<Props> = ({ project, onNext, onBack, userCoins, ded
       newPages[index] = { ...newPages[index], imageUrl: cloudUrl, isGenerating: false };
       setPages(newPages);
       onNext({ pages: newPages });
-    } catch (err) {
+    } catch (err: any) {
+      console.error("Redraw Error:", err);
+      alert(lang === 'zh' ? `画面编织失败: ${err.message || '网络连接超时，请重试'}` : `Failed to generate image: ${err.message}`);
       setPages(prev => {
         const updated = [...prev];
         updated[index] = { ...updated[index], isGenerating: false };
@@ -104,6 +108,7 @@ const DirectorMode: React.FC<Props> = ({ project, onNext, onBack, userCoins, ded
     if (polishingIndex === null || !polishInstruction.trim()) return;
     const index = polishingIndex;
     const page = pages[index];
+    
     if (!deductCoins(5)) return;
 
     setPolishingIndex(null);
@@ -127,6 +132,14 @@ const DirectorMode: React.FC<Props> = ({ project, onNext, onBack, userCoins, ded
       newPages[index] = { ...newPages[index], imageUrl: cloudUrl, isGenerating: false };
       setPages(newPages);
       onNext({ pages: newPages });
+    } catch (err: any) {
+      console.error("Polish Error:", err);
+      alert(lang === 'zh' ? `微调失败: ${err.message}` : `Polish failed: ${err.message}`);
+      setPages(prev => {
+        const updated = [...prev];
+        updated[index] = { ...updated[index], isGenerating: false };
+        return updated;
+      });
     } finally {
       setPolishInstruction('');
     }
@@ -160,7 +173,6 @@ const DirectorMode: React.FC<Props> = ({ project, onNext, onBack, userCoins, ded
             <div className="flex transition-transform duration-500 ease-out" style={{ transform: `translateX(-${activeIndex * 100}%)` }}>
               {pages.map((page, idx) => (
                 <div key={page.id} className="min-w-full flex flex-col items-center gap-6 px-4">
-                   {/* 画面比例更新为 2:1 */}
                    <div className="relative w-full aspect-[2/1] bg-[var(--card-bg)] rounded-[3rem] shadow-2xl overflow-hidden group border border-[var(--border-color)]">
                       {page.imageUrl ? (
                           <img src={page.imageUrl} className={`w-full h-full object-cover transition-all ${page.isGenerating ? 'blur-2xl scale-110 grayscale' : ''}`} />

@@ -90,29 +90,32 @@ export const generateSceneImage = async (
   const charBase64 = await prepareImageForAi(characterImg);
   
   // 注入高级构图指令：2:1 宽幅，非居中构图，强调对角线、曲线等动态美学
-  const compositionPrompt = "Wide cinematic 2:1 aspect ratio. Avoid centered subjects. Use dynamic composition like diagonal lines, leading curves, or rule of thirds. Storybook illustration.";
+  const compositionPrompt = "Cinematic 16:9 aspect ratio illustration. Avoid centered subjects. Use dynamic composition like diagonal lines, leading curves, or rule of thirds. No frames, high detail children's book art.";
   
   const response = await ai.models.generateContent({
-    model: 'gemini-3-pro-image-preview', 
+    // 使用稳定性更高的模型，防止 Pro 模型因 Key 限制报错
+    model: 'gemini-2.5-flash-image', 
     contents: { 
       parts: [
         { inlineData: { data: charBase64, mimeType: 'image/jpeg' } },
-        { text: `${compositionPrompt} Character: ${characterDesc}. Style: ${stylePrompt}. Action: ${visualPrompt}. Narrative context: ${pageText}. No text, no frames.` }
+        { text: `${compositionPrompt} Character: ${characterDesc}. Style: ${stylePrompt}. Scene: ${visualPrompt}. Narrative: ${pageText}.` }
       ]
     },
     config: { 
       safetySettings,
       imageConfig: {
-        aspectRatio: "16:9", // API 支持的最宽比例，前端将微调至 2:1
-        imageSize: "1K"
+        aspectRatio: "16:9" // API 参数必须是标准值
       }
     }
   });
   
-  for (const part of response.candidates?.[0]?.content?.parts || []) {
+  const candidates = response.candidates;
+  if (!candidates || candidates.length === 0) throw new Error("引擎未响应，请检查网络或更换描述词");
+  
+  for (const part of candidates[0].content.parts) {
     if (part.inlineData) return `data:image/jpeg;base64,${part.inlineData.data}`;
   }
-  throw new Error("AI returned no image");
+  throw new Error("画面生成受限或失败");
 };
 
 export const analyzeStyleImage = async (imageUrl: string): Promise<string> => {
@@ -123,7 +126,7 @@ export const analyzeStyleImage = async (imageUrl: string): Promise<string> => {
     contents: {
       parts: [
         { inlineData: { data: base64, mimeType: 'image/jpeg' } },
-        { text: "Describe the artistic style of this image. Concise." }
+        { text: "Describe the artistic style of this image in 5 words." }
       ]
     }
   });
@@ -147,7 +150,7 @@ export const finalizeVisualScript = async (
   const stylePrompt = getStylePrompt(style, analyzedStyleDesc);
   
   const analysisResponse = await ai.models.generateContent({
-    model: 'gemini-3-pro-preview',
+    model: 'gemini-3-flash-preview',
     contents: {
       parts: [
         { inlineData: { data: charBase64, mimeType: 'image/jpeg' } },
@@ -188,21 +191,24 @@ export const editPageImage = async (
   const stylePrompt = getStylePrompt(style, styleDesc);
   
   const response = await ai.models.generateContent({
-    model: 'gemini-3-pro-image-preview',
+    model: 'gemini-2.5-flash-image',
     contents: {
       parts: [
         { inlineData: { data: pageBase64, mimeType: 'image/jpeg' } },
         { inlineData: { data: charBase64, mimeType: 'image/jpeg' } },
-        { text: `Edit first image: ${instruction}. Consistency with second image: ${characterDesc}. Cinematic 2:1 composition. Style: ${stylePrompt}.` }
+        { text: `Edit this image: ${instruction}. Keep style: ${stylePrompt}. Maintain character consistency: ${characterDesc}. Cinema 16:9 ratio.` }
       ]
     },
     config: { imageConfig: { aspectRatio: "16:9" } }
   });
   
-  for (const part of response.candidates?.[0]?.content?.parts || []) {
+  const candidates = response.candidates;
+  if (!candidates || candidates.length === 0) throw new Error("微调引擎未响应");
+
+  for (const part of candidates[0].content.parts) {
     if (part.inlineData) return `data:image/jpeg;base64,${part.inlineData.data}`;
   }
-  throw new Error("Edit failed");
+  throw new Error("微调失败");
 };
 
 export const generateCharacterOptions = async (description: string, style: VisualStyle, image?: string, styleDesc?: string): Promise<string[]> => {
@@ -213,15 +219,18 @@ export const generateCharacterOptions = async (description: string, style: Visua
     const imgBase64 = await prepareImageForAi(image);
     parts.push({ inlineData: { data: imgBase64, mimeType: 'image/jpeg' } });
   }
-  parts.push({ text: `Character design sheet: ${description}. Multiple poses. Style: ${stylePrompt}.` });
+  parts.push({ text: `Character concept art: ${description}. Multiple poses, clear background. Style: ${stylePrompt}.` });
   
   const response = await ai.models.generateContent({ 
-    model: 'gemini-3-pro-image-preview', 
+    model: 'gemini-2.5-flash-image', 
     contents: { parts }
   });
   const images: string[] = [];
-  for (const part of response.candidates?.[0]?.content?.parts || []) {
-    if (part.inlineData) images.push(`data:image/jpeg;base64,${part.inlineData.data}`);
+  const candidates = response.candidates;
+  if (candidates && candidates.length > 0) {
+    for (const part of candidates[0].content.parts) {
+      if (part.inlineData) images.push(`data:image/jpeg;base64,${part.inlineData.data}`);
+    }
   }
   return images;
 };
@@ -235,7 +244,7 @@ export const generateStoryOutline = async (idea: string, template: StoryTemplate
       parts.push({ inlineData: { data: imgBase64, mimeType: "image/jpeg" } });
     } catch(e) {}
   }
-  parts.push({ text: `Story outline for: "${idea}". Template: ${template}. 12 pages. Return JSON: {title, pages: [{type, text}]}` });
+  parts.push({ text: `Create a picture book outline for: "${idea}". Template: ${template}. EXACTLY 12 pages. Return JSON: {title, pages: [{type, text}]}` });
   
   const response = await ai.models.generateContent({
     model: 'gemini-3-flash-preview',
@@ -244,7 +253,7 @@ export const generateStoryOutline = async (idea: string, template: StoryTemplate
   });
   const data = extractJson(response.text);
   return { 
-    title: data.title, 
+    title: data.title || "奇妙绘本", 
     pages: (data.pages || []).map((p: any, idx: number) => ({ ...p, id: generateId(), pageNumber: idx + 1 })) 
   };
 };

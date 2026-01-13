@@ -107,9 +107,10 @@ const ThePress: React.FC<Props> = ({ project, onBack, lang, isDark }) => {
       </div>
 
       <div className="flex flex-col items-center w-full">
-        <div className="w-full max-w-2xl card-dynamic shadow-2xl rounded-[2rem] md:rounded-[3rem] overflow-hidden flex flex-col relative">
+        {/* 将 aspect-square 修改为 aspect-[2/1] 以匹配导演模式 */}
+        <div className="w-full max-w-4xl card-dynamic shadow-2xl rounded-[2rem] md:rounded-[3rem] overflow-hidden flex flex-col relative">
           
-          <div className="relative aspect-square w-full bg-[var(--text-main)]/5 flex items-center justify-center overflow-hidden">
+          <div className="relative aspect-[2/1] w-full bg-[var(--text-main)]/5 flex items-center justify-center overflow-hidden">
             {currentPage?.imageUrl ? (
               <img 
                 key={`img-${currentIndex}`}
