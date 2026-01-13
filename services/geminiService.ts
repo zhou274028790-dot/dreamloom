@@ -15,43 +15,40 @@ const extractJson = (text: string) => {
   }
 };
 
-const prepareImageForAi = async (imgData: string, retryCount = 0): Promise<string> => {
+/**
+ * 优化后的图片预处理，增加跨域容错逻辑
+ */
+const prepareImageForAi = async (imgData: string): Promise<string> => {
   if (!imgData) throw new Error("无效的图片数据");
-  if (imgData.startsWith('data:')) return imgData.split(',')[1];
-  try {
-    const resp = await fetch(imgData, { mode: 'cors' });
-    if (resp.ok) {
-      const blob = await resp.blob();
-      return new Promise((resolve) => {
-        const reader = new FileReader();
-        reader.onloadend = () => resolve((reader.result as string).split(',')[1]);
-        reader.readAsDataURL(blob);
-      });
-    }
-  } catch (e) {}
-  return processImageFromUrl(imgData);
-};
+  
+  // 如果已经是 base64，直接返回内容部分
+  if (imgData.startsWith('data:')) {
+    return imgData.split(',')[1];
+  }
 
-const processImageFromUrl = (url: string): Promise<string> => {
-  return new Promise((resolve, reject) => {
+  // 如果是 URL，尝试通过 Canvas 绕过可能的跨域限制
+  try {
     const img = new Image();
     img.crossOrigin = "anonymous";
-    img.src = url;
-    img.onload = () => {
-      const canvas = document.createElement('canvas');
-      const SIZE = 1024;
-      canvas.width = SIZE;
-      canvas.height = SIZE;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) return reject(new Error("Canvas failure"));
-      const scale = Math.max(SIZE / img.width, SIZE / img.height);
-      const x = (SIZE / 2) - (img.width / 2) * scale;
-      const y = (SIZE / 2) - (img.height / 2) * scale;
-      ctx.drawImage(img, x, y, img.width * scale, img.height * scale);
-      resolve(canvas.toDataURL('image/jpeg', 0.85).split(',')[1]);
-    };
-    img.onerror = reject;
-  });
+    img.src = imgData;
+    
+    return await new Promise((resolve, reject) => {
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return reject(new Error("Canvas context failed"));
+        canvas.width = img.width;
+        canvas.height = img.height;
+        ctx.drawImage(img, 0, 0);
+        resolve(canvas.toDataURL('image/jpeg', 0.8).split(',')[1]);
+      };
+      img.onerror = () => reject(new Error("图片加载失败，请尝试重新上传"));
+      // 5秒超时
+      setTimeout(() => reject(new Error("读取参考图超时")), 5000);
+    });
+  } catch (e) {
+    throw new Error("参考图处理异常，请确保图片已正确上传");
+  }
 };
 
 const safetySettings = [
@@ -89,33 +86,32 @@ export const generateSceneImage = async (
   
   const charBase64 = await prepareImageForAi(characterImg);
   
-  // 注入高级构图指令：2:1 宽幅，非居中构图，强调对角线、曲线等动态美学
-  const compositionPrompt = "Cinematic 16:9 aspect ratio illustration. Avoid centered subjects. Use dynamic composition like diagonal lines, leading curves, or rule of thirds. No frames, high detail children's book art.";
+  // 注入高级构图指令：强制 2:1 视觉，非居中，动态流线
+  const compositionPrompt = "Extremely wide 2:1 cinema composition. NO CENTRAL SUBJECT. Use dynamic leading lines and curves. High-end storybook illustration, no frames, no text.";
   
   const response = await ai.models.generateContent({
-    // 使用稳定性更高的模型，防止 Pro 模型因 Key 限制报错
     model: 'gemini-2.5-flash-image', 
     contents: { 
       parts: [
         { inlineData: { data: charBase64, mimeType: 'image/jpeg' } },
-        { text: `${compositionPrompt} Character: ${characterDesc}. Style: ${stylePrompt}. Scene: ${visualPrompt}. Narrative: ${pageText}.` }
+        { text: `${compositionPrompt} Character traits: ${characterDesc}. Style: ${stylePrompt}. Scene action: ${visualPrompt}. Background context: ${pageText}.` }
       ]
     },
     config: { 
       safetySettings,
       imageConfig: {
-        aspectRatio: "16:9" // API 参数必须是标准值
+        aspectRatio: "16:9" 
       }
     }
   });
   
   const candidates = response.candidates;
-  if (!candidates || candidates.length === 0) throw new Error("引擎未响应，请检查网络或更换描述词");
+  if (!candidates || candidates.length === 0) throw new Error("AI 拒绝生成此画面（可能触发安全审核或网络波动）");
   
   for (const part of candidates[0].content.parts) {
     if (part.inlineData) return `data:image/jpeg;base64,${part.inlineData.data}`;
   }
-  throw new Error("画面生成受限或失败");
+  throw new Error("生成结果中未包含有效图像数据");
 };
 
 export const analyzeStyleImage = async (imageUrl: string): Promise<string> => {
@@ -126,7 +122,7 @@ export const analyzeStyleImage = async (imageUrl: string): Promise<string> => {
     contents: {
       parts: [
         { inlineData: { data: base64, mimeType: 'image/jpeg' } },
-        { text: "Describe the artistic style of this image in 5 words." }
+        { text: "Describe the artistic style of this image in 5 descriptive words." }
       ]
     }
   });
@@ -154,7 +150,7 @@ export const finalizeVisualScript = async (
     contents: {
       parts: [
         { inlineData: { data: charBase64, mimeType: 'image/jpeg' } },
-        { text: "Describe this character's visual traits in one short sentence." }
+        { text: "Describe this character's visual traits concisely." }
       ]
     }
   });
@@ -162,7 +158,7 @@ export const finalizeVisualScript = async (
 
   const scriptResponse = await ai.models.generateContent({
     model: 'gemini-3-flash-preview',
-    contents: `Character: ${analyzedDesc}, Style: ${stylePrompt}. Scenes: ${pages.map(p => p.text).join('|')}. Return JSON: {updatedPages: [{text, visualPrompt}]}`,
+    contents: `Character: ${analyzedDesc}, Style: ${stylePrompt}. Story: ${pages.map(p => p.text).join('|')}. JSON: {updatedPages: [{text, visualPrompt}]}`,
     config: { responseMimeType: "application/json" }
   });
 
@@ -196,19 +192,19 @@ export const editPageImage = async (
       parts: [
         { inlineData: { data: pageBase64, mimeType: 'image/jpeg' } },
         { inlineData: { data: charBase64, mimeType: 'image/jpeg' } },
-        { text: `Edit this image: ${instruction}. Keep style: ${stylePrompt}. Maintain character consistency: ${characterDesc}. Cinema 16:9 ratio.` }
+        { text: `Edit current scene: ${instruction}. Keep style: ${stylePrompt}. Subject: ${characterDesc}. Cinema 16:9 widescreen.` }
       ]
     },
     config: { imageConfig: { aspectRatio: "16:9" } }
   });
   
   const candidates = response.candidates;
-  if (!candidates || candidates.length === 0) throw new Error("微调引擎未响应");
+  if (!candidates || candidates.length === 0) throw new Error("微调失败（模型未返回内容）");
 
   for (const part of candidates[0].content.parts) {
     if (part.inlineData) return `data:image/jpeg;base64,${part.inlineData.data}`;
   }
-  throw new Error("微调失败");
+  throw new Error("微调未生成图像");
 };
 
 export const generateCharacterOptions = async (description: string, style: VisualStyle, image?: string, styleDesc?: string): Promise<string[]> => {
@@ -219,7 +215,7 @@ export const generateCharacterOptions = async (description: string, style: Visua
     const imgBase64 = await prepareImageForAi(image);
     parts.push({ inlineData: { data: imgBase64, mimeType: 'image/jpeg' } });
   }
-  parts.push({ text: `Character concept art: ${description}. Multiple poses, clear background. Style: ${stylePrompt}.` });
+  parts.push({ text: `Full body character design sheet: ${description}. Clear background. Style: ${stylePrompt}.` });
   
   const response = await ai.models.generateContent({ 
     model: 'gemini-2.5-flash-image', 
@@ -244,7 +240,7 @@ export const generateStoryOutline = async (idea: string, template: StoryTemplate
       parts.push({ inlineData: { data: imgBase64, mimeType: "image/jpeg" } });
     } catch(e) {}
   }
-  parts.push({ text: `Create a picture book outline for: "${idea}". Template: ${template}. EXACTLY 12 pages. Return JSON: {title, pages: [{type, text}]}` });
+  parts.push({ text: `Story outline for: "${idea}". Template: ${template}. EXACTLY 12 pages. JSON: {title, pages: [{type, text}]}` });
   
   const response = await ai.models.generateContent({
     model: 'gemini-3-flash-preview',
@@ -253,7 +249,7 @@ export const generateStoryOutline = async (idea: string, template: StoryTemplate
   });
   const data = extractJson(response.text);
   return { 
-    title: data.title || "奇妙绘本", 
+    title: data.title || "未命名绘本", 
     pages: (data.pages || []).map((p: any, idx: number) => ({ ...p, id: generateId(), pageNumber: idx + 1 })) 
   };
 };

@@ -63,7 +63,7 @@ const MyProfile: React.FC<Props> = ({ user, setUser, handleLogout, lang, setLang
       save: '保存',
       switchLang: '语言切换',
       switchBg: '页面背景色',
-      empty: '暂无内容',
+      empty: '暂无订单记录',
       logout: '退出当前账号',
       logoutConfirm: '确定要退出当前账号吗？您的作品将保存在云端。'
     },
@@ -81,7 +81,7 @@ const MyProfile: React.FC<Props> = ({ user, setUser, handleLogout, lang, setLang
       save: 'Save',
       switchLang: 'Language',
       switchBg: 'Background Color',
-      empty: 'No Content',
+      empty: 'No orders found',
       logout: 'Logout Account',
       logoutConfirm: 'Log out? Your work is safely stored in the cloud.'
     }
@@ -118,17 +118,17 @@ const MyProfile: React.FC<Props> = ({ user, setUser, handleLogout, lang, setLang
                <p className="font-bold text-white text-xl animate-pulse">{t.verifying}</p>
             </div>
           ) : (
-            <div className="bg-white p-12 rounded-[4rem] shadow-2xl space-y-8 animate-in zoom-in-95 max-w-sm w-full">
+            <div className="bg-[var(--card-bg)] p-12 rounded-[4rem] shadow-2xl space-y-8 animate-in zoom-in-95 max-w-sm w-full border border-[var(--border-color)]">
                <div className="relative">
-                  <div className="text-7xl mb-4">🌸 🎊 🌿</div>
+                  <div className="text-7xl mb-4 text-center">🌸 🎊 🌿</div>
                   <div className="w-20 h-20 bg-green-500 rounded-full flex items-center justify-center text-white text-4xl mx-auto shadow-lg shadow-green-100 animate-bounce">
                     <i className="fas fa-check"></i>
                   </div>
                </div>
-               <div className="space-y-2">
-                 <h3 className="text-2xl font-black text-gray-900">{t.successTitle}</h3>
+               <div className="space-y-2 text-center">
+                 <h3 className="text-2xl font-black" style={{ color: 'var(--text-main)' }}>{t.successTitle}</h3>
                  <p className="text-green-600 font-bold">+{lastRecharge} 🌿</p>
-                 <p className="text-gray-400 text-xs px-6 leading-relaxed">{t.successSub}</p>
+                 <p className="opacity-40 text-xs px-6 leading-relaxed" style={{ color: 'var(--text-main)' }}>{t.successSub}</p>
                </div>
                <button 
                 onClick={() => setPaymentStatus('none')}
@@ -161,7 +161,8 @@ const MyProfile: React.FC<Props> = ({ user, setUser, handleLogout, lang, setLang
         </nav>
       </div>
 
-      <div className="flex-1 card-dynamic rounded-[3rem] p-8 min-h-[500px] flex flex-col bg-white">
+      {/* 主卡片：移除硬编码 bg-white */}
+      <div className="flex-1 card-dynamic rounded-[3rem] p-8 min-h-[500px] flex flex-col bg-[var(--card-bg)] border border-[var(--border-color)]">
         <div className="flex-1">
           {activeTab === 'wallet' && (
             <div className="space-y-10 animate-in h-full">
@@ -178,8 +179,8 @@ const MyProfile: React.FC<Props> = ({ user, setUser, handleLogout, lang, setLang
 
                <div className="space-y-8 py-4">
                   <div className="space-y-2 text-center sm:text-left">
-                    <h4 className="font-header font-bold text-xl">{t.rechargeTitle}</h4>
-                    <p className="text-xs opacity-40 font-medium">使用您在店铺购买的 12 位激活码进行兑换。</p>
+                    <h4 className="font-header font-bold text-xl" style={{ color: 'var(--text-main)' }}>{t.rechargeTitle}</h4>
+                    <p className="text-xs opacity-40 font-medium" style={{ color: 'var(--text-main)' }}>使用您在店铺购买的激活码进行兑换。</p>
                   </div>
                   
                   <div className="space-y-6">
@@ -189,7 +190,8 @@ const MyProfile: React.FC<Props> = ({ user, setUser, handleLogout, lang, setLang
                         value={redeemCodeInput}
                         onChange={(e) => setRedeemCodeInput(e.target.value.toUpperCase())}
                         placeholder={t.redeemPlaceholder}
-                        className="w-full px-8 py-5 bg-gray-50 border border-gray-100 rounded-[2rem] focus:ring-4 focus:ring-orange-500/5 outline-none font-black text-lg text-center tracking-widest placeholder:tracking-normal placeholder:font-bold placeholder:opacity-30 shadow-inner transition-all"
+                        className="w-full px-8 py-5 bg-[var(--text-main)]/5 border border-[var(--border-color)] rounded-[2rem] focus:ring-4 focus:ring-orange-500/10 outline-none font-black text-lg text-center tracking-widest placeholder:tracking-normal placeholder:font-bold placeholder:opacity-30 shadow-inner transition-all"
+                        style={{ color: 'var(--text-main)' }}
                        />
                        {errorMsg && <p className="text-red-500 text-xs font-bold text-center animate-in shake">{errorMsg}</p>}
                     </div>
@@ -217,8 +219,8 @@ const MyProfile: React.FC<Props> = ({ user, setUser, handleLogout, lang, setLang
 
           {activeTab === 'orders' && (
             <div className="flex flex-col items-center justify-center h-full opacity-20 gap-4">
-              <i className="fas fa-box-open text-5xl"></i>
-              <p className="text-sm font-bold">{t.empty}</p>
+              <i className="fas fa-box-open text-5xl" style={{ color: 'var(--text-main)' }}></i>
+              <p className="text-sm font-bold" style={{ color: 'var(--text-main)' }}>{t.empty}</p>
             </div>
           )}
 
@@ -226,13 +228,14 @@ const MyProfile: React.FC<Props> = ({ user, setUser, handleLogout, lang, setLang
             <div className="space-y-10 animate-in h-full flex flex-col">
                {/* 用户名编辑 */}
                <div className="space-y-4">
-                  <h4 className="text-sm font-black opacity-30 uppercase tracking-widest">{t.editName}</h4>
+                  <h4 className="text-sm font-black opacity-30 uppercase tracking-widest" style={{ color: 'var(--text-main)' }}>{t.editName}</h4>
                   <div className="flex gap-3">
                      <input 
                       type="text" 
                       value={editingName} 
                       onChange={(e) => setEditingName(e.target.value)}
-                      className="flex-1 px-6 py-4 bg-gray-50 border border-gray-100 rounded-2xl focus:ring-4 focus:ring-orange-500/5 outline-none font-bold text-gray-800 shadow-inner transition-all"
+                      className="flex-1 px-6 py-4 bg-[var(--text-main)]/5 border border-[var(--border-color)] rounded-2xl focus:ring-4 focus:ring-orange-500/10 outline-none font-bold shadow-inner transition-all"
+                      style={{ color: 'var(--text-main)' }}
                      />
                      <button 
                       onClick={handleUpdateName}
@@ -245,26 +248,25 @@ const MyProfile: React.FC<Props> = ({ user, setUser, handleLogout, lang, setLang
 
                {/* 背景色 */}
                <div className="space-y-4">
-                  <h4 className="text-sm font-black opacity-30 uppercase tracking-widest">{t.switchBg}</h4>
+                  <h4 className="text-sm font-black opacity-30 uppercase tracking-widest" style={{ color: 'var(--text-main)' }}>{t.switchBg}</h4>
                   <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
                      {bgColors.map(color => (
                        <button 
                         key={color.value}
                         onClick={() => setBgColor(color.value)}
-                        className={`group relative flex flex-col items-center gap-2 p-4 rounded-2xl border-2 transition-all ${bgColor === color.value ? 'border-orange-500 bg-orange-50' : 'border-gray-50 bg-gray-50'}`}
+                        className={`group relative flex flex-col items-center gap-2 p-4 rounded-2xl border-2 transition-all ${bgColor === color.value ? 'border-orange-500 bg-orange-50/10' : 'border-[var(--border-color)] bg-[var(--text-main)]/5'}`}
                        >
                          <div className="w-8 h-8 rounded-full border border-black/5" style={{ backgroundColor: color.value }}></div>
-                         <span className={`text-[10px] font-black ${bgColor === color.value ? 'text-orange-600' : 'text-gray-400'}`}>{color.name}</span>
+                         <span className={`text-[10px] font-black ${bgColor === color.value ? 'text-orange-600' : 'opacity-40'}`} style={{ color: bgColor === color.value ? undefined : 'var(--text-main)' }}>{color.name}</span>
                        </button>
                      ))}
                   </div>
                </div>
 
-               {/* 退出按钮 - 仅在此处保留 */}
-               <div className="pt-12 mt-auto">
+               <div className="pt-12 mt-auto text-center">
                   <button 
                     onClick={confirmLogout}
-                    className="w-full py-4 text-gray-300 font-bold text-xs hover:text-red-400 hover:bg-red-50 rounded-2xl transition-all flex items-center justify-center gap-2 border border-transparent hover:border-red-100"
+                    className="py-4 px-8 text-gray-400 font-bold text-xs hover:text-red-400 hover:bg-red-50/10 rounded-2xl transition-all flex items-center justify-center gap-2 mx-auto"
                   >
                     <i className="fas fa-sign-out-alt"></i>
                     {t.logout}
@@ -279,7 +281,7 @@ const MyProfile: React.FC<Props> = ({ user, setUser, handleLogout, lang, setLang
 };
 
 const SideBtn: React.FC<{ active: boolean, onClick: () => void, icon: string, label: string }> = ({ active, onClick, icon, label }) => (
-  <button onClick={onClick} className={`w-full flex items-center gap-4 px-6 py-4 rounded-2xl font-bold transition-all ${active ? 'bg-orange-500 text-white shadow-lg' : 'bg-transparent text-gray-400 hover:bg-gray-50'}`}>
+  <button onClick={onClick} className={`w-full flex items-center gap-4 px-6 py-4 rounded-2xl font-bold transition-all ${active ? 'bg-orange-500 text-white shadow-lg' : 'bg-transparent opacity-40 hover:opacity-100 hover:bg-[var(--text-main)]/5'}`} style={{ color: active ? undefined : 'var(--text-main)' }}>
     <i className={`fas ${icon}`}></i>
     <span className="text-xs">{label}</span>
   </button>
