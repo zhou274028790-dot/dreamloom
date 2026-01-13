@@ -16,53 +16,66 @@ const extractJson = (text: string) => {
 };
 
 /**
- * 极强鲁棒性的图片预处理：解决云端 URL 跨域和 Base64 读取问题
+ * 极强鲁棒性的图片转换，专门解决 Firebase URL 跨域导致的生图失败
  */
 const prepareImageForAi = async (imgData: string): Promise<string> => {
   if (!imgData) throw new Error("无效的图片数据");
   
-  // 1. 如果是 Base64，直接截取内容
   if (imgData.startsWith('data:')) {
     return imgData.split(',')[1];
   }
 
-  // 2. 如果是云端 URL，尝试使用 fetch 获取 Blob（这样更可靠，只要存储桶配置了跨域）
-  try {
-    const response = await fetch(imgData);
-    if (!response.ok) throw new Error("无法从云端下载图片");
-    const blob = await response.blob();
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const base64 = (reader.result as string).split(',')[1];
-        resolve(base64);
-      };
-      reader.onerror = reject;
-      reader.readAsDataURL(blob);
-    });
-  } catch (e) {
-    console.warn("Fetch failed, falling back to Canvas Draw:", e);
-    // 3. 后备方案：使用 Image + Canvas
-    return new Promise((resolve, reject) => {
-      const img = new Image();
-      img.crossOrigin = "anonymous";
-      img.src = imgData;
-      img.onload = () => {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    // 关键：必须在设置 src 前设置 crossOrigin
+    img.crossOrigin = "anonymous"; 
+    // 增加时间戳防止缓存导致的 CORS 失败
+    img.src = imgData.includes('?') ? `${imgData}&t=${Date.now()}` : `${imgData}?t=${Date.now()}`;
+    
+    const timeout = setTimeout(() => {
+      img.src = "";
+      reject(new Error("读取参考图超时，请检查网络环境或重新上传"));
+    }, 10000);
+
+    img.onload = () => {
+      clearTimeout(timeout);
+      try {
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
-        if (!ctx) return reject(new Error("Canvas context failed"));
-        canvas.width = img.width;
-        canvas.height = img.height;
-        ctx.drawImage(img, 0, 0);
-        try {
-          resolve(canvas.toDataURL('image/jpeg', 0.8).split(',')[1]);
-        } catch (err) {
-          reject(new Error("浏览器安全策略限制了图片读取，请重新上传参考图"));
+        if (!ctx) throw new Error("Canvas context failed");
+        
+        // 缩放图片防止 base64 过大导致 API 报错 (保持在 1024 左右)
+        const MAX_SIZE = 1024;
+        let width = img.width;
+        let height = img.height;
+        if (width > height) {
+          if (width > MAX_SIZE) {
+            height *= MAX_SIZE / width;
+            width = MAX_SIZE;
+          }
+        } else {
+          if (height > MAX_SIZE) {
+            width *= MAX_SIZE / height;
+            height = MAX_SIZE;
+          }
         }
-      };
-      img.onerror = () => reject(new Error("图片资源加载失败，请检查网络"));
-    });
-  }
+
+        canvas.width = width;
+        canvas.height = height;
+        ctx.drawImage(img, 0, 0, width, height);
+        
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+        resolve(dataUrl.split(',')[1]);
+      } catch (err) {
+        reject(new Error("浏览器安全策略拦截了图片读取，建议刷新重试"));
+      }
+    };
+    
+    img.onerror = () => {
+      clearTimeout(timeout);
+      reject(new Error("图片资源加载失败，请检查网络或图片有效性"));
+    };
+  });
 };
 
 const safetySettings = [
@@ -98,17 +111,17 @@ export const generateSceneImage = async (
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const stylePrompt = getStylePrompt(style, styleDesc);
   
-  // 处理角色参考图
+  // 核心修复点：使用更强的图片转换
   const charBase64 = await prepareImageForAi(characterImg);
   
-  const compositionPrompt = "Ultra-wide 2:1 cinema composition. Dynamic perspective, non-centered. Storybook illustration without any text.";
+  const compositionPrompt = "Wide cinematic 2:1 composition. Storybook illustration style, high detail, vibrant colors. No text in image.";
   
   const response = await ai.models.generateContent({
     model: 'gemini-2.5-flash-image', 
     contents: { 
       parts: [
         { inlineData: { data: charBase64, mimeType: 'image/jpeg' } },
-        { text: `${compositionPrompt} Character consistency: ${characterDesc}. Style: ${stylePrompt}. Scene: ${visualPrompt}. Narrative: ${pageText}.` }
+        { text: `${compositionPrompt} Subject Consistency: ${characterDesc}. Art Style: ${stylePrompt}. Current Scene: ${visualPrompt}. Plot: ${pageText}.` }
       ]
     },
     config: { 
@@ -117,13 +130,12 @@ export const generateSceneImage = async (
     }
   });
   
-  const candidates = response.candidates;
-  if (!candidates || candidates.length === 0) throw new Error("AI 无法根据当前描述生成画面，请尝试修改情节");
+  if (!response.candidates?.[0]?.content?.parts) throw new Error("AI 引擎未生成画面，请检查描述词或重试");
   
-  for (const part of candidates[0].content.parts) {
+  for (const part of response.candidates[0].content.parts) {
     if (part.inlineData) return `data:image/jpeg;base64,${part.inlineData.data}`;
   }
-  throw new Error("生成结果异常，请稍后重试");
+  throw new Error("生成结果不含图像数据");
 };
 
 export const analyzeStyleImage = async (imageUrl: string): Promise<string> => {
@@ -134,7 +146,7 @@ export const analyzeStyleImage = async (imageUrl: string): Promise<string> => {
     contents: {
       parts: [
         { inlineData: { data: base64, mimeType: 'image/jpeg' } },
-        { text: "Describe the artistic style of this style-reference image in 5 key words." }
+        { text: "Briefly describe the artistic style of this image in 5 keywords." }
       ]
     }
   });
@@ -152,7 +164,6 @@ export const finalizeVisualScript = async (
   const charBase64 = await prepareImageForAi(characterSeedImage);
   
   let analyzedStyleDesc = "";
-  // 只有自定义风格才分析图片特色
   if (style === VisualStyle.CUSTOM && styleRefImage) {
     analyzedStyleDesc = await analyzeStyleImage(styleRefImage);
   }
@@ -164,7 +175,7 @@ export const finalizeVisualScript = async (
     contents: {
       parts: [
         { inlineData: { data: charBase64, mimeType: 'image/jpeg' } },
-        { text: "Summarize the character traits of this person in one short sentence for image generation consistency." }
+        { text: "Summarize this character's visual features for image generation consistency." }
       ]
     }
   });
@@ -172,7 +183,7 @@ export const finalizeVisualScript = async (
 
   const scriptResponse = await ai.models.generateContent({
     model: 'gemini-3-flash-preview',
-    contents: `Character: ${analyzedDesc}, Style: ${stylePrompt}. Story: ${pages.map(p => p.text).join('|')}. JSON: {updatedPages: [{text, visualPrompt}]}`,
+    contents: `Character: ${analyzedDesc}, Style: ${stylePrompt}. Book: ${pages.map(p => p.text).join('|')}. JSON: {updatedPages: [{text, visualPrompt}]}`,
     config: { responseMimeType: "application/json" }
   });
 
@@ -206,19 +217,18 @@ export const editPageImage = async (
       parts: [
         { inlineData: { data: pageBase64, mimeType: 'image/jpeg' } },
         { inlineData: { data: charBase64, mimeType: 'image/jpeg' } },
-        { text: `Modify the first image based on: ${instruction}. Consistency with character in second image: ${characterDesc}. Style: ${stylePrompt}. Cinema widescreen.` }
+        { text: `Modify the scene based on: ${instruction}. Keep character as: ${characterDesc}. Style: ${stylePrompt}.` }
       ]
     },
     config: { imageConfig: { aspectRatio: "16:9" } }
   });
   
-  const candidates = response.candidates;
-  if (!candidates || candidates.length === 0) throw new Error("微调引擎无响应");
+  if (!response.candidates?.[0]?.content?.parts) throw new Error("微调失败");
 
-  for (const part of candidates[0].content.parts) {
+  for (const part of response.candidates[0].content.parts) {
     if (part.inlineData) return `data:image/jpeg;base64,${part.inlineData.data}`;
   }
-  throw new Error("微调未生成结果");
+  throw new Error("微调未成功");
 };
 
 export const generateCharacterOptions = async (description: string, style: VisualStyle, image?: string, styleDesc?: string): Promise<string[]> => {
@@ -229,16 +239,15 @@ export const generateCharacterOptions = async (description: string, style: Visua
     const imgBase64 = await prepareImageForAi(image);
     parts.push({ inlineData: { data: imgBase64, mimeType: 'image/jpeg' } });
   }
-  parts.push({ text: `Character design sheet for ${description}. Full body, clear backgrounds. Style: ${stylePrompt}.` });
+  parts.push({ text: `Full body character design sheet for ${description}. White background. Style: ${stylePrompt}.` });
   
   const response = await ai.models.generateContent({ 
     model: 'gemini-2.5-flash-image', 
     contents: { parts }
   });
   const images: string[] = [];
-  const candidates = response.candidates;
-  if (candidates && candidates.length > 0) {
-    for (const part of candidates[0].content.parts) {
+  if (response.candidates?.[0]?.content?.parts) {
+    for (const part of response.candidates[0].content.parts) {
       if (part.inlineData) images.push(`data:image/jpeg;base64,${part.inlineData.data}`);
     }
   }
@@ -254,7 +263,7 @@ export const generateStoryOutline = async (idea: string, template: StoryTemplate
       parts.push({ inlineData: { data: imgBase64, mimeType: "image/jpeg" } });
     } catch(e) {}
   }
-  parts.push({ text: `Create a 12-page picture book outline for: "${idea}". Template: ${template}. JSON output: {title, pages: [{type, text}]}` });
+  parts.push({ text: `Create a 12-page story outline for: "${idea}". Template: ${template}. JSON: {title, pages: [{type, text}]}` });
   
   const response = await ai.models.generateContent({
     model: 'gemini-3-flash-preview',
@@ -263,7 +272,7 @@ export const generateStoryOutline = async (idea: string, template: StoryTemplate
   });
   const data = extractJson(response.text);
   return { 
-    title: data.title || "奇妙故事", 
+    title: data.title || "奇妙探险", 
     pages: (data.pages || []).map((p: any, idx: number) => ({ ...p, id: generateId(), pageNumber: idx + 1 })) 
   };
 };
