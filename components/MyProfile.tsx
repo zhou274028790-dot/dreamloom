@@ -106,6 +106,9 @@ const MyProfile: React.FC<Props> = ({ user, setUser, handleLogout, lang, setLang
     }
   };
 
+  // 统一输入框样式：深色模式下自动变暗
+  const inputClassName = `w-full px-8 py-5 rounded-[2rem] border border-[var(--border-color)] focus:ring-4 focus:ring-orange-500/10 outline-none font-bold shadow-inner transition-all bg-[var(--text-main)]/[0.05] text-[var(--text-main)]`;
+
   return (
     <div className="max-w-5xl mx-auto flex flex-col md:flex-row gap-8 animate-in relative">
       
@@ -161,8 +164,7 @@ const MyProfile: React.FC<Props> = ({ user, setUser, handleLogout, lang, setLang
         </nav>
       </div>
 
-      {/* 主卡片：移除硬编码 bg-white */}
-      <div className="flex-1 card-dynamic rounded-[3rem] p-8 min-h-[500px] flex flex-col bg-[var(--card-bg)] border border-[var(--border-color)]">
+      <div className="flex-1 card-dynamic rounded-[3rem] p-8 min-h-[500px] flex flex-col bg-[var(--card-bg)] border border-[var(--border-color)] shadow-[var(--card-shadow)]">
         <div className="flex-1">
           {activeTab === 'wallet' && (
             <div className="space-y-10 animate-in h-full">
@@ -180,7 +182,7 @@ const MyProfile: React.FC<Props> = ({ user, setUser, handleLogout, lang, setLang
                <div className="space-y-8 py-4">
                   <div className="space-y-2 text-center sm:text-left">
                     <h4 className="font-header font-bold text-xl" style={{ color: 'var(--text-main)' }}>{t.rechargeTitle}</h4>
-                    <p className="text-xs opacity-40 font-medium" style={{ color: 'var(--text-main)' }}>使用您在店铺购买的激活码进行兑换。</p>
+                    <p className="text-xs opacity-40 font-medium" style={{ color: 'var(--text-main)' }}>使用您在店铺购买的 12 位激活码进行兑换。</p>
                   </div>
                   
                   <div className="space-y-6">
@@ -190,8 +192,8 @@ const MyProfile: React.FC<Props> = ({ user, setUser, handleLogout, lang, setLang
                         value={redeemCodeInput}
                         onChange={(e) => setRedeemCodeInput(e.target.value.toUpperCase())}
                         placeholder={t.redeemPlaceholder}
-                        className="w-full px-8 py-5 bg-[var(--text-main)]/5 border border-[var(--border-color)] rounded-[2rem] focus:ring-4 focus:ring-orange-500/10 outline-none font-black text-lg text-center tracking-widest placeholder:tracking-normal placeholder:font-bold placeholder:opacity-30 shadow-inner transition-all"
-                        style={{ color: 'var(--text-main)' }}
+                        className={inputClassName}
+                        style={{ textAlign: 'center', letterSpacing: '0.1em' }}
                        />
                        {errorMsg && <p className="text-red-500 text-xs font-bold text-center animate-in shake">{errorMsg}</p>}
                     </div>
@@ -234,8 +236,8 @@ const MyProfile: React.FC<Props> = ({ user, setUser, handleLogout, lang, setLang
                       type="text" 
                       value={editingName} 
                       onChange={(e) => setEditingName(e.target.value)}
-                      className="flex-1 px-6 py-4 bg-[var(--text-main)]/5 border border-[var(--border-color)] rounded-2xl focus:ring-4 focus:ring-orange-500/10 outline-none font-bold shadow-inner transition-all"
-                      style={{ color: 'var(--text-main)' }}
+                      className={inputClassName}
+                      style={{ padding: '1rem 1.5rem', borderRadius: '1rem' }}
                      />
                      <button 
                       onClick={handleUpdateName}
@@ -254,7 +256,7 @@ const MyProfile: React.FC<Props> = ({ user, setUser, handleLogout, lang, setLang
                        <button 
                         key={color.value}
                         onClick={() => setBgColor(color.value)}
-                        className={`group relative flex flex-col items-center gap-2 p-4 rounded-2xl border-2 transition-all ${bgColor === color.value ? 'border-orange-500 bg-orange-50/10' : 'border-[var(--border-color)] bg-[var(--text-main)]/5'}`}
+                        className={`group relative flex flex-col items-center gap-2 p-4 rounded-2xl border-2 transition-all ${bgColor === color.value ? 'border-orange-500 bg-orange-50/10' : 'border-[var(--border-color)] bg-[var(--text-main)]/[0.05]'}`}
                        >
                          <div className="w-8 h-8 rounded-full border border-black/5" style={{ backgroundColor: color.value }}></div>
                          <span className={`text-[10px] font-black ${bgColor === color.value ? 'text-orange-600' : 'opacity-40'}`} style={{ color: bgColor === color.value ? undefined : 'var(--text-main)' }}>{color.name}</span>
