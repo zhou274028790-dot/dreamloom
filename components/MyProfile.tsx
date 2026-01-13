@@ -1,6 +1,8 @@
 
 import React, { useState } from 'react';
 import { Language, BookProject, User } from '../types';
+import { redeemCodeFromCloud, syncUserProfile } from '../services/dataService';
+import { auth } from '../services/firebase';
 
 interface Props {
   user: User;
@@ -16,28 +18,33 @@ interface Props {
 
 const MyProfile: React.FC<Props> = ({ user, setUser, handleLogout, lang, setLang, bgColor, setBgColor, history, isDark }) => {
   const [activeTab, setActiveTab] = useState<'wallet' | 'orders' | 'settings'>('wallet');
-  const [paymentStatus, setPaymentStatus] = useState<'none' | 'redirecting' | 'success'>('none');
+  const [paymentStatus, setPaymentStatus] = useState<'none' | 'verifying' | 'success'>('none');
   const [lastRecharge, setLastRecharge] = useState(0);
   const [editingName, setEditingName] = useState(user.username);
+  const [redeemCodeInput, setRedeemCodeInput] = useState('');
+  const [errorMsg, setErrorMsg] = useState('');
 
-  const handleRecharge = (amount: number, coins: number) => {
-    // 1. 模拟跳转支付
-    setPaymentStatus('redirecting');
+  const handleRedeem = async () => {
+    if (!redeemCodeInput.trim()) return;
+    setErrorMsg('');
+    setPaymentStatus('verifying');
     
-    setTimeout(() => {
-      // 2. 支付成功逻辑
-      setUser(prev => ({
-        ...prev,
-        coins: prev.coins + coins,
-        isFirstRecharge: amount === 3.9 ? false : prev.isFirstRecharge
-      }));
-      setLastRecharge(coins);
+    const result = await redeemCodeFromCloud(auth.currentUser?.uid || '', redeemCodeInput);
+    
+    if (result.success) {
+      setUser(prev => ({ ...prev, coins: prev.coins + (result.value || 0) }));
+      setLastRecharge(result.value || 0);
       setPaymentStatus('success');
-    }, 2000);
+      setRedeemCodeInput('');
+    } else {
+      setPaymentStatus('none');
+      setErrorMsg(result.message);
+    }
   };
 
   const handleUpdateName = () => {
     setUser(prev => ({ ...prev, username: editingName }));
+    syncUserProfile(auth.currentUser?.uid || '', { username: editingName });
     alert(lang === 'zh' ? '用户名已更新' : 'Username updated');
   };
 
@@ -45,12 +52,12 @@ const MyProfile: React.FC<Props> = ({ user, setUser, handleLogout, lang, setLang
     zh: {
       wallet: '造梦钱包', orders: '我的订单', settings: '梦境设置',
       balance: '金豆余额', rechargeTitle: '获取更多金豆',
-      first: '新造梦师专享', firstPrice: '¥ 3.9', firstCoins: '50 🌿',
-      standard: '基础造梦包', standardPrice: '¥ 10', standardCoins: '100 🌿',
-      unlimited: '奇迹造梦包', unlimitedPrice: '¥ 39.9', unlimitedCoins: '500 🌿',
-      redirecting: '正在跳转至支付平台...',
-      successTitle: '🎉 充值成功！',
-      successSub: '金豆已到账，快去继续编织你的梦境吧！',
+      redeemPlaceholder: '请输入激活码 (如: DREAM-888)',
+      redeemBtn: '立即兑换',
+      goShop: '还没有码？前往【小红书店铺】购买激活卡片',
+      verifying: '正在校验兑换码，请稍候...',
+      successTitle: '🎉 兑换成功！',
+      successSub: '金豆已存入你的梦境账户。',
       continue: '继续造梦',
       editName: '修改用户名',
       save: '保存',
@@ -62,13 +69,13 @@ const MyProfile: React.FC<Props> = ({ user, setUser, handleLogout, lang, setLang
     },
     en: {
       wallet: 'Wallet', orders: 'Orders', settings: 'Settings',
-      balance: 'Beans', rechargeTitle: 'Buy Beans',
-      first: 'New Dreamer', firstPrice: '¥ 3.9', firstCoins: '50 🌿',
-      standard: 'Basic', standardPrice: '¥ 10', standardCoins: '100 🌿',
-      unlimited: 'Miracle', unlimitedPrice: '¥ 39.9', unlimitedCoins: '500 🌿',
-      redirecting: 'Redirecting to payment...',
-      successTitle: '🎉 Recharge Success!',
-      successSub: 'Beans added! Let\'s go back to dreaming.',
+      balance: 'Beans', rechargeTitle: 'Get More Beans',
+      redeemPlaceholder: 'Enter activation code',
+      redeemBtn: 'Redeem Now',
+      goShop: 'No code? Visit our store to buy',
+      verifying: 'Verifying code...',
+      successTitle: '🎉 Success!',
+      successSub: 'Beans added to your account.',
       continue: 'Continue Dreaming',
       editName: 'Edit Username',
       save: 'Save',
@@ -105,10 +112,10 @@ const MyProfile: React.FC<Props> = ({ user, setUser, handleLogout, lang, setLang
       {/* 支付状态蒙层 */}
       {paymentStatus !== 'none' && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-xl z-[200] flex items-center justify-center p-6 text-center animate-in fade-in">
-          {paymentStatus === 'redirecting' ? (
+          {paymentStatus === 'verifying' ? (
             <div className="space-y-6">
                <div className="w-16 h-16 border-4 border-orange-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
-               <p className="font-bold text-white text-xl animate-pulse">{t.redirecting}</p>
+               <p className="font-bold text-white text-xl animate-pulse">{t.verifying}</p>
             </div>
           ) : (
             <div className="bg-white p-12 rounded-[4rem] shadow-2xl space-y-8 animate-in zoom-in-95 max-w-sm w-full">
@@ -157,26 +164,52 @@ const MyProfile: React.FC<Props> = ({ user, setUser, handleLogout, lang, setLang
       <div className="flex-1 card-dynamic rounded-[3rem] p-8 min-h-[500px] flex flex-col bg-white">
         <div className="flex-1">
           {activeTab === 'wallet' && (
-            <div className="space-y-10 animate-in">
+            <div className="space-y-10 animate-in h-full">
                <div className="bg-gradient-to-br from-orange-500 to-orange-600 rounded-[2.5rem] p-8 text-white shadow-xl flex flex-col sm:flex-row justify-between items-center gap-6">
-                  <div className="space-y-1">
+                  <div className="space-y-1 text-center sm:text-left">
                     <p className="text-orange-100 text-[10px] font-black uppercase tracking-widest opacity-80">{t.balance}</p>
                     <div className="text-5xl font-bold font-header flex items-center gap-4">
                       <i className="fas fa-seedling text-yellow-300"></i>
                       <span>{user.coins}</span>
                     </div>
                   </div>
-                  <button className="px-6 py-2 bg-white/20 rounded-xl text-xs font-bold border border-white/30">历史记录</button>
+                  <button className="px-6 py-2 bg-white/20 rounded-xl text-xs font-bold border border-white/30 hover:bg-white/30 transition-all">历史记录</button>
                </div>
 
-               <div className="space-y-6">
-                  <h4 className="font-header font-bold text-xl">{t.rechargeTitle}</h4>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                    {user.isFirstRecharge && (
-                      <RechargeCard title={t.first} price={t.firstPrice} coins={t.firstCoins} onClick={() => handleRecharge(3.9, 50)} highlight={true} />
-                    )}
-                    <RechargeCard title={t.standard} price={t.standardPrice} coins={t.standardCoins} onClick={() => handleRecharge(10, 100)} highlight={false} />
-                    <RechargeCard title={t.unlimited} price={t.unlimitedPrice} coins={t.unlimitedCoins} onClick={() => handleRecharge(39.9, 500)} highlight={false} />
+               <div className="space-y-8 py-4">
+                  <div className="space-y-2 text-center sm:text-left">
+                    <h4 className="font-header font-bold text-xl">{t.rechargeTitle}</h4>
+                    <p className="text-xs opacity-40 font-medium">使用您在店铺购买的 12 位激活码进行兑换。</p>
+                  </div>
+                  
+                  <div className="space-y-6">
+                    <div className="space-y-3">
+                       <input 
+                        type="text" 
+                        value={redeemCodeInput}
+                        onChange={(e) => setRedeemCodeInput(e.target.value.toUpperCase())}
+                        placeholder={t.redeemPlaceholder}
+                        className="w-full px-8 py-5 bg-gray-50 border border-gray-100 rounded-[2rem] focus:ring-4 focus:ring-orange-500/5 outline-none font-black text-lg text-center tracking-widest placeholder:tracking-normal placeholder:font-bold placeholder:opacity-30 shadow-inner transition-all"
+                       />
+                       {errorMsg && <p className="text-red-500 text-xs font-bold text-center animate-in shake">{errorMsg}</p>}
+                    </div>
+
+                    <button 
+                      onClick={handleRedeem}
+                      disabled={!redeemCodeInput.trim()}
+                      className="btn-candy w-full py-5 text-white rounded-[2rem] font-bold text-lg shadow-xl active:scale-95 transition-all disabled:opacity-40 disabled:grayscale"
+                    >
+                      {t.redeemBtn}
+                    </button>
+
+                    <div className="text-center">
+                       <button 
+                        onClick={() => window.open('https://www.xiaohongshu.com', '_blank')}
+                        className="text-xs font-bold text-orange-500/60 hover:text-orange-600 transition-all border-b border-orange-200"
+                       >
+                         {t.goShop} <i className="fas fa-external-link-alt ml-1"></i>
+                       </button>
+                    </div>
                   </div>
                </div>
             </div>
@@ -227,7 +260,7 @@ const MyProfile: React.FC<Props> = ({ user, setUser, handleLogout, lang, setLang
                   </div>
                </div>
 
-               {/* 退出按钮 - 仅在此处保留，且采用浅色弱化处理 */}
+               {/* 退出按钮 - 仅在此处保留 */}
                <div className="pt-12 mt-auto">
                   <button 
                     onClick={confirmLogout}
@@ -249,16 +282,6 @@ const SideBtn: React.FC<{ active: boolean, onClick: () => void, icon: string, la
   <button onClick={onClick} className={`w-full flex items-center gap-4 px-6 py-4 rounded-2xl font-bold transition-all ${active ? 'bg-orange-500 text-white shadow-lg' : 'bg-transparent text-gray-400 hover:bg-gray-50'}`}>
     <i className={`fas ${icon}`}></i>
     <span className="text-xs">{label}</span>
-  </button>
-);
-
-const RechargeCard: React.FC<{ title: string, price: string, coins: string, onClick: () => void, highlight: boolean }> = ({ title, price, coins, onClick, highlight }) => (
-  <button onClick={onClick} className={`p-6 rounded-[2rem] border-2 flex flex-col items-center gap-3 transition-all hover:scale-[1.02] ${highlight ? 'border-orange-500 bg-orange-50' : 'border-transparent bg-gray-50'}`}>
-    <span className="text-[9px] font-black opacity-40 uppercase tracking-widest">{title}</span>
-    <span className="text-2xl font-bold font-header text-gray-900">{price}</span>
-    <div className={`px-4 py-1.5 rounded-full text-xs font-bold flex items-center gap-2 ${highlight ? 'bg-orange-500 text-white' : 'bg-orange-100 text-orange-600'}`}>
-       <i className="fas fa-seedling"></i> {coins}
-    </div>
   </button>
 );
 
