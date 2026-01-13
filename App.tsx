@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { onAuthStateChanged, signInAnonymously, signOut } from "firebase/auth";
-import { auth } from "./services/firebase";
+import { auth, db } from "./services/firebase";
 import { BookProject, StoryTemplate, VisualStyle, AppView, Language, User } from './types';
 import { getUserProfile, syncUserProfile, saveProjectToCloud, loadUserProjects, deleteProjectFromCloud } from './services/dataService';
 
@@ -15,9 +15,8 @@ import BrandStory from './components/BrandStory';
 import MyProfile from './components/MyProfile';
 import Login from './components/Login';
 
-// 生成随机提取码 A123-B4 格式
 const generateExtractionCode = () => {
-  const letters = 'ABCDEFGHJKLMNPQRSTUVWXYZ'; // 排除易混淆的 I, O
+  const letters = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
   const digits = '123456789';
   const rL = (len: number) => Array.from({length: len}, () => letters[Math.floor(Math.random() * letters.length)]).join('');
   const rD = (len: number) => Array.from({length: len}, () => digits[Math.floor(Math.random() * digits.length)]).join('');
@@ -93,6 +92,7 @@ const App: React.FC = () => {
           setUser({ ...profile, isLoggedIn: true });
           const projects = await loadUserProjects(fbUser.uid);
           setHistory(projects);
+          setCurrentView('library');
         }
       } else {
         setFirebaseUid(null);
@@ -114,13 +114,11 @@ const App: React.FC = () => {
 
   useEffect(() => {
     const hex = bgColor.replace('#', '');
-    const adjust = isDarkBg ? 30 : 0;
-    const r = Math.min(255, parseInt(hex.substr(0, 2), 16) + adjust);
-    const g = Math.min(255, parseInt(hex.substr(2, 2), 16) + adjust);
-    const b = Math.min(255, parseInt(hex.substr(4, 2), 16) + adjust);
-    
-    const cardBg = isDarkBg ? `rgba(${r}, ${g}, ${b}, 0.7)` : '#FFFFFF';
-    const borderColor = isDarkBg ? `rgba(${r+20}, ${g+20}, ${b+20}, 0.3)` : 'rgba(234, 111, 35, 0.1)';
+    const r = parseInt(hex.substr(0, 2), 16);
+    const g = parseInt(hex.substr(2, 2), 16);
+    const b = parseInt(hex.substr(4, 2), 16);
+    const cardBg = isDarkBg ? `rgba(${r+30}, ${g+30}, ${b+30}, 0.7)` : '#FFFFFF';
+    const borderColor = isDarkBg ? `rgba(${r+40}, ${g+40}, ${b+40}, 0.3)` : 'rgba(234, 111, 35, 0.1)';
     const textMain = isDarkBg ? '#FFFFFF' : '#2C211D';
     const textSub = isDarkBg ? 'rgba(255, 255, 255, 0.45)' : 'rgba(44, 33, 29, 0.5)';
 
@@ -164,24 +162,34 @@ const App: React.FC = () => {
     return true;
   };
 
-  const handleLogin = async (username: string, method: string) => {
+  const handleLogin = async (username: string, method: string, isRegistering: boolean) => {
     try {
       const cred = await signInAnonymously(auth);
+      setFirebaseUid(cred.user.uid);
+      
       const profile = await getUserProfile(cred.user.uid);
       if (profile) {
+        // 如果是已存在的用户，直接同步
         setUser({ ...profile, isLoggedIn: true });
+        setCurrentView('library');
       } else {
-        const newUser = { username, coins: 80, isFirstRecharge: true, isLoggedIn: true };
+        // 如果是注册逻辑
+        const newUser = { 
+          username, 
+          email: username.includes('@') ? username : '',
+          coins: 80, 
+          isFirstRecharge: true, 
+          isLoggedIn: true 
+        };
         await syncUserProfile(cred.user.uid, newUser);
         setUser(newUser);
         setShowReward(true);
+        setCurrentView('library');
       }
-      setFirebaseUid(cred.user.uid);
       const projects = await loadUserProjects(cred.user.uid);
       setHistory(projects);
-      setCurrentView('library');
     } catch (e: any) {
-      alert(`登录失败: ${e.message}`);
+      alert(`验证失败: ${e.message}`);
     }
   };
 
@@ -218,7 +226,7 @@ const App: React.FC = () => {
         <header className={`bg-[var(--card-bg)] backdrop-blur-3xl border-b border-[var(--border-color)] py-3 px-4 md:px-6 sticky top-0 z-[60] shadow-sm`}>
            <div className="max-w-7xl mx-auto flex justify-between items-center relative">
              <div className="flex items-center gap-3 cursor-pointer group" onClick={() => setCurrentView('library')}>
-                <div className="w-10 h-10 bg-[#EA6F23] rounded-2xl flex items-center justify-center shadow-lg flex-shrink-0 transform rotate-3 transition-transform group-hover:rotate-0">
+                <div className="w-10 h-10 bg-[#EA6F23] rounded-2xl flex items-center justify-center shadow-lg flex-shrink-0 transform rotate-3">
                   <i className="fas fa-magic text-white text-sm"></i>
                 </div>
                 <h1 className="text-lg md:text-xl font-header font-bold tracking-tight">DreamLoom</h1>
@@ -229,7 +237,7 @@ const App: React.FC = () => {
                  <i className="fas fa-seedling text-[#EA6F23] text-[10px]"></i>
                  <span className="text-xs font-black text-[#EA6F23]">{user.coins}</span>
                </div>
-               <button onClick={() => setIsMenuOpen(!isMenuOpen)} className="w-10 h-10 flex items-center justify-center text-[var(--text-main)] hover:bg-[var(--text-main)]/5 rounded-2xl transition-all active:scale-90">
+               <button onClick={() => setIsMenuOpen(!isMenuOpen)} className="w-10 h-10 flex items-center justify-center text-[var(--text-main)] hover:bg-[var(--text-main)]/5 rounded-2xl transition-all">
                   <i className={`fas ${isMenuOpen ? 'fa-times' : 'fa-bars'}`}></i>
                </button>
              </div>
@@ -278,8 +286,8 @@ const App: React.FC = () => {
                 <i className="fas fa-gift"></i>
              </div>
              <div className="space-y-3">
-                <h3 className="text-3xl font-bold font-header">新造梦师礼包</h3>
-                <p className="opacity-60 font-medium leading-relaxed">赠送 80 颗金豆。</p>
+                <h3 className="text-3xl font-bold font-header">欢迎加入创作室</h3>
+                <p className="opacity-60 font-medium leading-relaxed">赠送 80 颗初始金豆，开启你的梦境。</p>
              </div>
              <button onClick={() => setShowReward(false)} className="btn-candy w-full py-5 text-white rounded-[2rem] font-bold shadow-2xl">立即开启</button>
           </div>

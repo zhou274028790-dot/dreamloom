@@ -38,7 +38,6 @@ const DirectorMode: React.FC<Props> = ({ project, onNext, onBack, userCoins, ded
     if (project.pages.length > 0) setPages(project.pages);
   }, [project.pages]);
 
-  // 随机更新文案
   useEffect(() => {
     const updateMsg = () => {
       setCurrentQueueMsg(emotionalPhrases[Math.floor(Math.random() * emotionalPhrases.length)]);
@@ -47,10 +46,6 @@ const DirectorMode: React.FC<Props> = ({ project, onNext, onBack, userCoins, ded
     const timer = setInterval(updateMsg, 5000);
     return () => clearInterval(timer);
   }, []);
-
-  const handleApiError = (err: any) => {
-    alert("生图引擎响应异常: " + (err.message || "连接超时。"));
-  };
 
   const handleRedraw = async (index: number) => {
     const page = pages[index];
@@ -78,7 +73,6 @@ const DirectorMode: React.FC<Props> = ({ project, onNext, onBack, userCoins, ded
       setPages(newPages);
       onNext({ pages: newPages });
     } catch (err) {
-      handleApiError(err);
       setPages(prev => {
         const updated = [...prev];
         updated[index] = { ...updated[index], isGenerating: false };
@@ -133,13 +127,6 @@ const DirectorMode: React.FC<Props> = ({ project, onNext, onBack, userCoins, ded
       newPages[index] = { ...newPages[index], imageUrl: cloudUrl, isGenerating: false };
       setPages(newPages);
       onNext({ pages: newPages });
-    } catch (err) {
-      handleApiError(err);
-      setPages(prev => {
-        const updated = [...prev];
-        updated[index] = { ...updated[index], isGenerating: false };
-        return updated;
-      });
     } finally {
       setPolishInstruction('');
     }
@@ -169,11 +156,12 @@ const DirectorMode: React.FC<Props> = ({ project, onNext, onBack, userCoins, ded
             <i className="fas fa-chevron-left"></i>
           </button>
 
-          <div className="w-full max-w-2xl overflow-hidden">
+          <div className="w-full max-w-4xl overflow-hidden">
             <div className="flex transition-transform duration-500 ease-out" style={{ transform: `translateX(-${activeIndex * 100}%)` }}>
               {pages.map((page, idx) => (
                 <div key={page.id} className="min-w-full flex flex-col items-center gap-6 px-4">
-                   <div className="relative w-full aspect-square bg-[var(--card-bg)] rounded-[3rem] shadow-2xl overflow-hidden group border border-[var(--border-color)]">
+                   {/* 画面比例更新为 2:1 */}
+                   <div className="relative w-full aspect-[2/1] bg-[var(--card-bg)] rounded-[3rem] shadow-2xl overflow-hidden group border border-[var(--border-color)]">
                       {page.imageUrl ? (
                           <img src={page.imageUrl} className={`w-full h-full object-cover transition-all ${page.isGenerating ? 'blur-2xl scale-110 grayscale' : ''}`} />
                       ) : (
@@ -195,7 +183,7 @@ const DirectorMode: React.FC<Props> = ({ project, onNext, onBack, userCoins, ded
                                  <i className="fas fa-feather-pointed text-2xl text-[#EA6F23] animate-pulse"></i>
                               </div>
                            </div>
-                           <p className="text-sm font-bold text-[#EA6F23] italic max-w-[240px] leading-relaxed">“{currentQueueMsg}”</p>
+                           <p className="text-sm font-bold text-[#EA6F23] italic max-w-md leading-relaxed px-10">“{currentQueueMsg}”</p>
                         </div>
                       )}
                       
@@ -206,7 +194,7 @@ const DirectorMode: React.FC<Props> = ({ project, onNext, onBack, userCoins, ded
                         </div>
                       )}
                    </div>
-                   <div className="w-full max-w-xl">
+                   <div className="w-full max-w-2xl">
                      <textarea 
                       value={page.text} 
                       onChange={(e) => { const np = [...pages]; np[idx].text = e.target.value; setPages(np); onNext({pages: np}); }} 
@@ -256,9 +244,9 @@ const DirectorMode: React.FC<Props> = ({ project, onNext, onBack, userCoins, ded
           <div className="bg-[var(--card-bg)] w-full max-w-md rounded-[3rem] p-10 space-y-8 shadow-2xl animate-in zoom-in-95 border border-[var(--border-color)]">
              <div className="space-y-2 text-center">
                <h3 className="text-xl font-bold font-header">魔棒微调</h3>
-               <p className="text-[10px] opacity-50 font-medium">像变魔术一样，告诉 AI 你想如何改变画面。</p>
+               <p className="text-[10px] opacity-50 font-medium">告诉 AI 你想如何改变画面构图或细节。</p>
              </div>
-             <textarea value={polishInstruction} onChange={(e) => setPolishInstruction(e.target.value)} placeholder="比如：在天空加一朵像兔子的云..." className="w-full h-24 p-4 bg-[var(--text-main)]/5 border border-[var(--border-color)] rounded-2xl outline-none font-bold text-sm" />
+             <textarea value={polishInstruction} onChange={(e) => setPolishInstruction(e.target.value)} placeholder="比如：让主角站在画面左侧三分之一处..." className="w-full h-24 p-4 bg-[var(--text-main)]/5 border border-[var(--border-color)] rounded-2xl outline-none font-bold text-sm" />
              <div className="flex gap-4">
                <button onClick={() => setPolishingIndex(null)} className="flex-1 py-3 font-bold opacity-30 text-sm">取消</button>
                <button onClick={handlePolishSubmit} className="flex-1 py-3 bg-blue-600 text-white rounded-2xl font-bold shadow-xl active:scale-95 transition-all text-sm">确认微调 (5🌿)</button>
