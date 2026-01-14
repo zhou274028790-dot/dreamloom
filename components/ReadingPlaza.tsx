@@ -35,18 +35,21 @@ const ReadingPlaza: React.FC<Props> = ({ lang, onUseStyle, onUseIdea }) => {
         const querySnapshot = await getDocs(collection(db, "plaza_stories"));
         const fetchedBooks: PlazaBook[] = querySnapshot.docs.map(doc => {
           const data = doc.data();
-          // 兼容性处理：有些旧数据可能用的是 imageUrl 而不是 image
-          const formattedPages = (data.pages || []).map((p: any) => ({
-            text: p.text || '',
-            image: p.image || p.imageUrl || data.cover_url // 确保每一页都有有效的图片引用
-          }));
+          // 深度兼容：提取 pages 并确保 image 字段有效
+          const formattedPages = (data.pages || []).map((p: any) => {
+            const pageImageUrl = p.image || p.imageUrl || p.url || data.cover_url;
+            return {
+              text: p.text || '',
+              image: pageImageUrl
+            };
+          });
 
           return {
             id: doc.id,
             title: data.title || (lang === 'zh' ? '无题' : 'Untitled'),
             author: data.author || 'Anonymous',
             likes: data.likes || 0,
-            cover_url: data.cover_url || 'https://images.unsplash.com/photo-1532012197267-da84d127e765?auto=format&fit=crop&w=800&q=80',
+            cover_url: data.cover_url || '',
             style: data.style as VisualStyle || VisualStyle.WATERCOLOR,
             idea: data.idea || '',
             pages: formattedPages
@@ -92,8 +95,8 @@ const ReadingPlaza: React.FC<Props> = ({ lang, onUseStyle, onUseIdea }) => {
 
   const handleOpenBook = (book: PlazaBook) => {
     if (!book.pages || book.pages.length === 0) return;
-    setSelectedBook(book);
     setPreviewIndex(0);
+    setSelectedBook(book);
   };
 
   const sortedBooks = [...books].sort((a, b) => {
@@ -158,90 +161,102 @@ const ReadingPlaza: React.FC<Props> = ({ lang, onUseStyle, onUseIdea }) => {
         </div>
       )}
 
-      {/* 沉浸式巨幕阅读器 - UI 深度优化 */}
+      {/* 沉浸式巨幕阅读器 - 针对翻页 Bug 与 按钮视觉优化 */}
       {selectedBook && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-0 md:p-6 lg:p-10">
-          <div className="absolute inset-0 bg-black/95 backdrop-blur-2xl animate-in fade-in" onClick={() => setSelectedBook(null)}></div>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-0 md:p-4">
+          <div className="absolute inset-0 bg-black/98 backdrop-blur-3xl animate-in fade-in" onClick={() => setSelectedBook(null)}></div>
           
-          <div className="relative w-full h-full md:max-w-6xl md:max-h-[90vh] bg-[var(--card-bg)] rounded-none md:rounded-[4rem] overflow-hidden shadow-2xl animate-in zoom-in-95 flex flex-col">
+          <div className="relative w-full h-full md:max-w-7xl md:max-h-[92vh] bg-black md:rounded-[4rem] overflow-hidden shadow-2xl animate-in zoom-in-95 flex flex-col">
             
-            {/* 顶部控制栏 */}
-            <div className="absolute top-0 inset-x-0 h-20 px-8 flex justify-between items-center z-[120] bg-gradient-to-b from-black/60 to-transparent pointer-events-none">
+            {/* 顶部透明控制栏 */}
+            <div className="absolute top-0 inset-x-0 h-24 px-8 flex justify-between items-center z-[130] bg-gradient-to-b from-black/80 via-black/20 to-transparent pointer-events-none">
                 <div className="pointer-events-auto">
-                   <h3 className="text-white text-xl font-bold font-header drop-shadow-md">{selectedBook.title}</h3>
-                   <p className="text-white/60 text-[10px] font-black uppercase tracking-widest mt-0.5">@ {selectedBook.author}</p>
+                   <h3 className="text-white text-xl md:text-2xl font-bold font-header drop-shadow-lg">{selectedBook.title}</h3>
+                   <p className="text-white/50 text-[10px] font-black uppercase tracking-[0.3em] mt-1 flex items-center gap-2">
+                     <i className="fas fa-feather-pointed"></i> @{selectedBook.author}
+                   </p>
                 </div>
                 <button 
                   onClick={() => setSelectedBook(null)}
-                  className="w-12 h-12 rounded-full bg-white/20 backdrop-blur-md text-white flex items-center justify-center pointer-events-auto hover:bg-white/40 transition-all border border-white/20"
+                  className="w-12 h-12 rounded-full bg-white/10 backdrop-blur-md text-white flex items-center justify-center pointer-events-auto hover:bg-white/20 transition-all border border-white/10 group shadow-lg"
                 >
-                  <i className="fas fa-times text-xl"></i>
+                  <i className="fas fa-times text-xl group-hover:rotate-90 transition-transform"></i>
                 </button>
             </div>
 
-            {/* 巨幕图片展示区 */}
-            <div className="flex-1 relative group flex items-center justify-center bg-black/20">
-              {/* 图片层 */}
-              <div className="w-full h-full p-4 md:p-8 flex items-center justify-center">
+            {/* 巨幕图片核心展示区 */}
+            <div className="flex-1 relative flex items-center justify-center overflow-hidden">
+              
+              {/* 图片层：彻底去除内边距，实现巨幕效果 */}
+              <div className="w-full h-full flex items-center justify-center">
                  <img 
-                    key={`reader-img-${previewIndex}`} // 关键：使用 key 强制刷新
-                    src={selectedBook.pages[previewIndex]?.image || selectedBook.cover_url} 
-                    className="max-w-full max-h-full object-contain rounded-2xl shadow-[0_30px_60px_-15px_rgba(0,0,0,0.5)] transition-all duration-700 animate-in fade-in"
+                    key={`${selectedBook.id}-p-${previewIndex}`} // 强制刷新 Key
+                    src={selectedBook.pages[previewIndex]?.image} 
+                    className="w-full h-full object-contain transition-all duration-1000 animate-in fade-in"
                     alt={`Page ${previewIndex + 1}`} 
                  />
               </div>
 
-              {/* 翻页导航按钮 */}
-              <div className="absolute inset-y-0 left-0 right-0 flex justify-between items-center px-4 md:px-8 pointer-events-none">
-                <button 
-                  onClick={() => setPreviewIndex(p => Math.max(0, p - 1))}
-                  disabled={previewIndex === 0}
-                  className="w-14 h-14 md:w-16 md:h-16 bg-white/90 rounded-full flex items-center justify-center text-[#EA6F23] shadow-2xl disabled:opacity-0 transition-all hover:scale-110 active:scale-90 pointer-events-auto border-4 border-orange-50"
-                >
-                  <i className="fas fa-chevron-left text-xl"></i>
-                </button>
-                <button 
-                  onClick={() => setPreviewIndex(p => Math.min(selectedBook.pages.length - 1, p + 1))}
-                  disabled={previewIndex === selectedBook.pages.length - 1}
-                  className="w-14 h-14 md:w-16 md:h-16 bg-white/90 rounded-full flex items-center justify-center text-[#EA6F23] shadow-2xl disabled:opacity-0 transition-all hover:scale-110 active:scale-90 pointer-events-auto border-4 border-orange-50"
-                >
-                  <i className="fas fa-chevron-right text-xl"></i>
-                </button>
-              </div>
+              {/* 透明导航按钮：不再遮挡画面 */}
+              <button 
+                onClick={() => setPreviewIndex(p => Math.max(0, p - 1))}
+                disabled={previewIndex === 0}
+                className="absolute left-0 inset-y-0 w-24 md:w-32 flex items-center justify-center bg-transparent hover:bg-white/5 transition-all group disabled:opacity-0 z-[140]"
+              >
+                <div className="w-14 h-14 rounded-full flex items-center justify-center text-white/40 group-hover:text-white group-hover:scale-125 transition-all drop-shadow-[0_0_10px_rgba(0,0,0,0.5)]">
+                  <i className="fas fa-chevron-left text-3xl"></i>
+                </div>
+              </button>
+              
+              <button 
+                onClick={() => setPreviewIndex(p => Math.min(selectedBook.pages.length - 1, p + 1))}
+                disabled={previewIndex === selectedBook.pages.length - 1}
+                className="absolute right-0 inset-y-0 w-24 md:w-32 flex items-center justify-center bg-transparent hover:bg-white/5 transition-all group disabled:opacity-0 z-[140]"
+              >
+                <div className="w-14 h-14 rounded-full flex items-center justify-center text-white/40 group-hover:text-white group-hover:scale-125 transition-all drop-shadow-[0_0_10px_rgba(0,0,0,0.5)]">
+                  <i className="fas fa-chevron-right text-3xl"></i>
+                </div>
+              </button>
 
-              {/* 底部悬浮文字层 */}
-              <div className="absolute bottom-12 inset-x-0 px-6 md:px-12 pointer-events-none">
-                 <div className="max-w-3xl mx-auto bg-white/20 backdrop-blur-xl p-6 md:p-8 rounded-[2.5rem] border border-white/20 shadow-2xl pointer-events-auto">
-                    <p className="text-white text-lg md:text-2xl text-center leading-relaxed font-bold italic drop-shadow-sm">
-                      "{selectedBook.pages[previewIndex]?.text || ''}"
+              {/* 底部悬浮文字层：沉浸式设计 */}
+              <div className="absolute bottom-20 inset-x-0 px-6 md:px-20 pointer-events-none z-[130]">
+                 <div className="max-w-4xl mx-auto p-8 rounded-[3rem] bg-gradient-to-t from-black/80 via-black/40 to-transparent">
+                    <p className="text-white text-xl md:text-3xl text-center leading-relaxed font-bold italic drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] animate-in slide-in-from-bottom-2 duration-700">
+                      {selectedBook.pages[previewIndex]?.text}
                     </p>
                  </div>
               </div>
 
-              {/* 进度指示器 */}
-              <div className="absolute bottom-6 left-0 right-0 flex justify-center gap-2 z-[110]">
+              {/* 进度条指示器 */}
+              <div className="absolute bottom-10 left-0 right-0 flex justify-center gap-2 z-[140]">
                 {selectedBook.pages.map((_, i) => (
-                  <div key={`dot-${i}`} className={`h-2 rounded-full transition-all duration-500 ${i === previewIndex ? 'w-10 bg-[#EA6F23]' : 'w-2 bg-white/30'}`}></div>
+                  <button 
+                    key={`nav-dot-${i}`} 
+                    onClick={() => setPreviewIndex(i)}
+                    className={`h-1.5 rounded-full transition-all duration-500 shadow-sm ${i === previewIndex ? 'w-12 bg-[#EA6F23]' : 'w-2 bg-white/20 hover:bg-white/40'}`}
+                  ></button>
                 ))}
               </div>
             </div>
 
-            {/* 底部功能区 - 压缩高度，留出更多空间给图 */}
-            <div className="bg-[var(--card-bg)] px-8 py-4 flex flex-col md:flex-row items-center justify-between gap-4 border-t border-[var(--border-color)]">
-                <div className="flex items-center gap-4">
-                  <div className="px-4 py-2 bg-orange-50 rounded-2xl flex items-center gap-3">
-                     <i className="fas fa-magic text-[#EA6F23]"></i>
-                     <span className="text-xs font-bold text-[#EA6F23] uppercase tracking-widest">{selectedBook.style}</span>
+            {/* 底部精简功能区 */}
+            <div className="bg-[#111111] px-10 py-5 flex flex-col md:flex-row items-center justify-between gap-6 border-t border-white/5 z-[150]">
+                <div className="flex items-center gap-6">
+                  <div className="px-5 py-2.5 bg-white/5 rounded-2xl flex items-center gap-3 border border-white/10 shadow-inner">
+                     <i className="fas fa-palette text-[#EA6F23]"></i>
+                     <span className="text-xs font-black text-white/80 uppercase tracking-widest">{selectedBook.style}</span>
                   </div>
-                  <span className="text-[10px] font-black opacity-20 uppercase tracking-[0.3em]">{previewIndex + 1} / {selectedBook.pages.length} PAGES</span>
+                  <div className="text-[10px] font-black text-white/30 uppercase tracking-[0.4em]">
+                    SLIDE {previewIndex + 1} OF {selectedBook.pages.length}
+                  </div>
                 </div>
                 
                 <div className="flex gap-4 w-full md:w-auto">
-                  <button onClick={() => onUseIdea(selectedBook.idea)} className="flex-1 md:flex-none px-8 py-3 bg-[var(--text-main)]/5 text-[var(--text-main)] rounded-2xl font-bold text-sm hover:bg-orange-50 transition-all border border-[var(--border-color)] flex items-center justify-center gap-2">
+                  <button onClick={() => onUseIdea(selectedBook.idea)} className="flex-1 md:flex-none px-8 py-3.5 bg-white/5 text-white/70 rounded-2xl font-bold text-sm hover:bg-white/10 hover:text-white transition-all border border-white/10 flex items-center justify-center gap-2">
                     <i className="fas fa-pen-nib text-xs"></i> {t.useIdea}
                   </button>
-                  <button onClick={() => onUseStyle(selectedBook.style)} className="flex-1 md:flex-none px-10 py-3 btn-candy text-white rounded-2xl font-bold text-sm shadow-xl hover:-translate-y-1 transition-all flex items-center justify-center gap-2">
-                    <i className="fas fa-palette text-xs"></i> {t.useStyle}
+                  <button onClick={() => onUseStyle(selectedBook.style)} className="flex-1 md:flex-none px-10 py-3.5 btn-candy text-white rounded-2xl font-bold text-sm shadow-2xl hover:scale-105 active:scale-95 transition-all flex items-center justify-center gap-3">
+                    <i className="fas fa-magic text-xs"></i> {t.useStyle}
                   </button>
                 </div>
             </div>
