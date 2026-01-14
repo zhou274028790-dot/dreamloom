@@ -17,6 +17,7 @@ const IdeaSpark: React.FC<Props> = ({ project, onNext, lang = 'zh', isDark = fal
   const [error, setError] = useState<string | null>(null);
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
   const [isRecording, setIsRecording] = useState(false);
+  const [shakeKey, setShakeKey] = useState(0); // 用于触发文字切换动画
   const imgInputRef = useRef<HTMLInputElement>(null);
 
   const templates = [
@@ -64,7 +65,7 @@ const IdeaSpark: React.FC<Props> = ({ project, onNext, lang = 'zh', isDark = fal
         '一朵柔软的棉花糖云，在夜里变成了一个巨大的枕头，守护着整座城市的梦。',
         '深海里的一头小鲸鱼，在安静的海底进行着一场缓慢且平稳的梦境巡航。',
         '温柔的小雨滴轻轻落在花瓣上，向口渴的小花们诉说着远方的云朵故事。',
-        '一块神奇的小毛毯，每天晚上都会给那些孤独的玩具们一个温暖的拥抱。',
+        '一块神奇的小毛毯，每天晚上都会给那些孤独的玩具们一个温暖之拥。',
         '月亮妈妈用银色的丝线织出了一座桥，让所有美好的梦都能顺利走过。',
         '小猫头鹰学会了在森林的低语中闭上眼睛，它听到了微风说“嘘——”。',
         '远方的灯塔有节奏地闪烁，像一颗平和的心跳，安抚着海面上归航的小船。',
@@ -90,28 +91,20 @@ const IdeaSpark: React.FC<Props> = ({ project, onNext, lang = 'zh', isDark = fal
     },
   ];
 
-  const handleTemplateClick = (tId: StoryTemplate) => {
-    if (template !== tId) {
-      setTemplate(tId);
-      // 首次点击分类，默认显示第一条例子
-      const templateObj = templates.find(t => t.id === tId);
-      if (templateObj) setIdea(templateObj.examples[0]);
-    }
-  };
-
-  const handleShuffle = (e: React.MouseEvent, tId: StoryTemplate) => {
-    e.stopPropagation(); // 阻止触发外层卡片的点击
+  // 核心逻辑：真正的随机抽取
+  const triggerShuffle = (tId: StoryTemplate) => {
     const templateObj = templates.find(t => t.id === tId);
     if (!templateObj) return;
     
-    // 随机抽取一个与当前不同的灵感
     let randomIdx;
+    // 确保抽到的跟当前不一样
     do {
       randomIdx = Math.floor(Math.random() * templateObj.examples.length);
     } while (templateObj.examples[randomIdx] === idea && templateObj.examples.length > 1);
     
     setIdea(templateObj.examples[randomIdx]);
     setTemplate(tId);
+    setShakeKey(k => k + 1); // 触发 key 动画
   };
 
   const handleGenerate = async () => {
@@ -147,7 +140,10 @@ const IdeaSpark: React.FC<Props> = ({ project, onNext, lang = 'zh', isDark = fal
     recognition.lang = lang === 'zh' ? 'zh-CN' : 'en-US';
     recognition.onstart = () => setIsRecording(true);
     recognition.onend = () => setIsRecording(false);
-    recognition.onresult = (e: any) => setIdea(prev => prev + e.results[0][0].transcript);
+    recognition.onresult = (e: any) => {
+        setIdea(prev => prev + e.results[0][0].transcript);
+        setShakeKey(k => k + 1);
+    };
     recognition.start();
   };
 
@@ -179,9 +175,10 @@ const IdeaSpark: React.FC<Props> = ({ project, onNext, lang = 'zh', isDark = fal
             </div>
           </label>
           
-          <div className="relative flex-1 flex flex-col">
+          <div className="relative flex-1 flex flex-col overflow-hidden rounded-2xl">
             <textarea
-              className="w-full h-40 md:h-full min-h-[160px] p-4 md:p-5 rounded-2xl bg-[var(--card-bg)] text-[var(--text-main)] placeholder:text-[var(--text-main)]/20 focus:ring-4 focus:ring-[#EA6F23]/10 outline-none resize-none transition-all font-medium text-base md:text-lg leading-relaxed shadow-inner border border-[var(--border-color)]"
+              key={shakeKey} // 文字变更时触发轻微淡入
+              className="w-full h-40 md:h-full min-h-[160px] p-4 md:p-5 rounded-2xl bg-[var(--card-bg)] text-[var(--text-main)] placeholder:text-[var(--text-main)]/20 focus:ring-4 focus:ring-[#EA6F23]/10 outline-none resize-none transition-all font-medium text-base md:text-lg leading-relaxed shadow-inner border border-[var(--border-color)] animate-in fade-in duration-300"
               placeholder={lang === 'zh' ? "写下一句话，或者上传一张图开启故事..." : "A sentence to start..."}
               value={idea}
               onChange={(e) => {
@@ -210,11 +207,15 @@ const IdeaSpark: React.FC<Props> = ({ project, onNext, lang = 'zh', isDark = fal
 
         <div className="grid grid-cols-1 gap-4 w-full">
           <p className="text-[10px] font-black opacity-30 uppercase tracking-widest ml-2 mb-1 flex items-center gap-2">
-            <i className="fas fa-magic text-xs"></i>
-            {lang === 'zh' ? '选择一个故事模版' : 'CHOOSE A TEMPLATE'}
+            <i className="fas fa-dice text-xs"></i>
+            {lang === 'zh' ? '点击下方卡片或骰子随机切换' : 'CLICK CARD OR DICE TO SHUFFLE'}
           </p>
           {templates.map((t) => (
-            <div key={t.id} onClick={() => handleTemplateClick(t.id)} className={`card-dynamic p-4 md:p-5 rounded-[24px] text-left transition-all relative overflow-hidden group cursor-pointer w-full border-2 ${template === t.id ? 'border-[#EA6F23] bg-[#EA6F23]/5' : 'border-[var(--border-color)] hover:border-[#EA6F23]/30'}`}>
+            <div 
+                key={t.id} 
+                onClick={() => triggerShuffle(t.id)} 
+                className={`card-dynamic p-4 md:p-5 rounded-[24px] text-left transition-all relative overflow-hidden group cursor-pointer w-full border-2 active:scale-95 ${template === t.id ? 'border-[#EA6F23] bg-[#EA6F23]/5' : 'border-[var(--border-color)] hover:border-[#EA6F23]/30'}`}
+            >
               <div className="flex items-center gap-4 relative z-10">
                 <div className={`w-10 h-10 md:w-12 md:h-12 rounded-2xl flex items-center justify-center flex-shrink-0 transition-all ${template === t.id ? 'bg-[#EA6F23] text-white shadow-lg' : 'bg-[#EA6F23]/10 text-[#EA6F23]'}`}>
                   <i className={`fas ${t.icon} text-base md:text-lg`}></i>
@@ -224,14 +225,12 @@ const IdeaSpark: React.FC<Props> = ({ project, onNext, lang = 'zh', isDark = fal
                   <p className="text-xs opacity-50 font-medium line-clamp-1">{t.desc}</p>
                 </div>
                 
-                {/* 骰子切换按钮 */}
-                <button 
-                  onClick={(e) => handleShuffle(e, t.id)}
-                  className={`absolute right-0 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full flex items-center justify-center transition-all ${template === t.id ? 'bg-[#EA6F23] text-white' : 'bg-[var(--text-main)]/5 text-[var(--text-main)]/40 hover:text-[#EA6F23] hover:bg-[#EA6F23]/10'} active:scale-90`}
-                  title={lang === 'zh' ? '换个灵感' : 'Shuffle Idea'}
+                {/* 骰子按钮 - 在卡片内更加显眼 */}
+                <div 
+                  className={`absolute right-0 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full flex items-center justify-center transition-all ${template === t.id ? 'bg-[#EA6F23] text-white' : 'bg-[var(--text-main)]/5 text-[var(--text-main)]/40 group-hover:text-[#EA6F23] group-hover:bg-[#EA6F23]/10'} group-hover:rotate-12`}
                 >
                   <i className="fas fa-dice text-lg"></i>
-                </button>
+                </div>
               </div>
             </div>
           ))}

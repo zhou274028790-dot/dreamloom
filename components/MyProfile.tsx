@@ -110,8 +110,8 @@ const MyProfile: React.FC<Props> = ({ user, setUser, handleLogout, lang, setLang
     }
   };
 
-  // UI 视觉重构：输入框不再使用纯白色，而是基于文字主色的微透明层，更高级感且护眼
-  const inputClassName = `w-full px-8 py-5 rounded-[2rem] border-2 border-[var(--text-main)]/10 focus:border-orange-500/50 focus:ring-4 focus:ring-orange-500/10 outline-none font-bold shadow-inner transition-all bg-[var(--text-main)]/5 text-[var(--text-main)] placeholder:text-[var(--text-main)]/20`;
+  // UI 视觉重构：在深色模式下使用背景同色系的浅色微光，不再使用突兀的纯白
+  const inputClassName = `w-full px-8 py-5 rounded-[2rem] border-2 border-[var(--text-main)]/10 focus:border-orange-500/50 outline-none font-bold shadow-inner transition-all bg-[var(--text-main)]/5 text-[var(--text-main)] placeholder:text-[var(--text-main)]/20`;
 
   return (
     <div className="max-w-5xl mx-auto flex flex-col md:flex-row gap-8 animate-in relative">
