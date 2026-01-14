@@ -18,7 +18,7 @@ interface PlazaBook {
   cover_url: string;
   style: VisualStyle;
   idea: string;
-  pages: { text: string; image: string }[];
+  pages: string[]; // 修正为纯字符串数组，存储图片 URL
 }
 
 const ReadingPlaza: React.FC<Props> = ({ lang, onUseStyle, onUseIdea }) => {
@@ -35,14 +35,9 @@ const ReadingPlaza: React.FC<Props> = ({ lang, onUseStyle, onUseIdea }) => {
         const querySnapshot = await getDocs(collection(db, "plaza_stories"));
         const fetchedBooks: PlazaBook[] = querySnapshot.docs.map(doc => {
           const data = doc.data();
-          // 深度兼容：提取 pages 并确保 image 字段有效
-          const formattedPages = (data.pages || []).map((p: any) => {
-            const pageImageUrl = p.image || p.imageUrl || p.url || data.cover_url;
-            return {
-              text: p.text || '',
-              image: pageImageUrl
-            };
-          });
+          // 核心修复：直接获取字符串数组，不做多余的对象映射
+          const rawPages = data.pages;
+          const formattedPages: string[] = Array.isArray(rawPages) ? rawPages : [];
 
           return {
             id: doc.id,
@@ -94,7 +89,7 @@ const ReadingPlaza: React.FC<Props> = ({ lang, onUseStyle, onUseIdea }) => {
   }[lang];
 
   const handleOpenBook = (book: PlazaBook) => {
-    if (!book.pages || book.pages.length === 0) return;
+    // 即使 pages 为空，至少可以看封面
     setPreviewIndex(0);
     setSelectedBook(book);
   };
@@ -161,7 +156,7 @@ const ReadingPlaza: React.FC<Props> = ({ lang, onUseStyle, onUseIdea }) => {
         </div>
       )}
 
-      {/* 沉浸式巨幕阅读器 - 针对翻页 Bug 与 按钮视觉优化 */}
+      {/* 沉浸式巨幕阅读器 - 修正数据解析 Bug */}
       {selectedBook && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-0 md:p-4">
           <div className="absolute inset-0 bg-black/98 backdrop-blur-3xl animate-in fade-in" onClick={() => setSelectedBook(null)}></div>
@@ -187,17 +182,17 @@ const ReadingPlaza: React.FC<Props> = ({ lang, onUseStyle, onUseIdea }) => {
             {/* 巨幕图片核心展示区 */}
             <div className="flex-1 relative flex items-center justify-center overflow-hidden">
               
-              {/* 图片层：彻底去除内边距，实现巨幕效果 */}
+              {/* 图片层：直接读取 selectedBook.pages[previewIndex] */}
               <div className="w-full h-full flex items-center justify-center">
                  <img 
-                    key={`${selectedBook.id}-p-${previewIndex}`} // 强制刷新 Key
-                    src={selectedBook.pages[previewIndex]?.image} 
+                    key={`${selectedBook.id}-p-${previewIndex}`} // 强制刷新 Key 确保翻页必动
+                    src={(selectedBook.pages && selectedBook.pages.length > 0) ? selectedBook.pages[previewIndex] : selectedBook.cover_url} 
                     className="w-full h-full object-contain transition-all duration-1000 animate-in fade-in"
                     alt={`Page ${previewIndex + 1}`} 
                  />
               </div>
 
-              {/* 透明导航按钮：不再遮挡画面 */}
+              {/* 透明导航按钮：全透明背景，减少阅读干扰 */}
               <button 
                 onClick={() => setPreviewIndex(p => Math.max(0, p - 1))}
                 disabled={previewIndex === 0}
@@ -210,7 +205,7 @@ const ReadingPlaza: React.FC<Props> = ({ lang, onUseStyle, onUseIdea }) => {
               
               <button 
                 onClick={() => setPreviewIndex(p => Math.min(selectedBook.pages.length - 1, p + 1))}
-                disabled={previewIndex === selectedBook.pages.length - 1}
+                disabled={selectedBook.pages.length <= 1 || previewIndex === selectedBook.pages.length - 1}
                 className="absolute right-0 inset-y-0 w-24 md:w-32 flex items-center justify-center bg-transparent hover:bg-white/5 transition-all group disabled:opacity-0 z-[140]"
               >
                 <div className="w-14 h-14 rounded-full flex items-center justify-center text-white/40 group-hover:text-white group-hover:scale-125 transition-all drop-shadow-[0_0_10px_rgba(0,0,0,0.5)]">
@@ -218,24 +213,26 @@ const ReadingPlaza: React.FC<Props> = ({ lang, onUseStyle, onUseIdea }) => {
                 </div>
               </button>
 
-              {/* 底部悬浮文字层：沉浸式设计 */}
+              {/* 底部悬浮文字层：如果 pages 是纯图片，则显示 book.idea */}
               <div className="absolute bottom-20 inset-x-0 px-6 md:px-20 pointer-events-none z-[130]">
                  <div className="max-w-4xl mx-auto p-8 rounded-[3rem] bg-gradient-to-t from-black/80 via-black/40 to-transparent">
                     <p className="text-white text-xl md:text-3xl text-center leading-relaxed font-bold italic drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] animate-in slide-in-from-bottom-2 duration-700">
-                      {selectedBook.pages[previewIndex]?.text}
+                      {selectedBook.idea || selectedBook.title}
                     </p>
                  </div>
               </div>
 
               {/* 进度条指示器 */}
               <div className="absolute bottom-10 left-0 right-0 flex justify-center gap-2 z-[140]">
-                {selectedBook.pages.map((_, i) => (
+                {selectedBook.pages.length > 0 ? selectedBook.pages.map((_, i) => (
                   <button 
                     key={`nav-dot-${i}`} 
                     onClick={() => setPreviewIndex(i)}
                     className={`h-1.5 rounded-full transition-all duration-500 shadow-sm ${i === previewIndex ? 'w-12 bg-[#EA6F23]' : 'w-2 bg-white/20 hover:bg-white/40'}`}
                   ></button>
-                ))}
+                )) : (
+                  <div className="h-1.5 w-12 bg-[#EA6F23] rounded-full"></div>
+                )}
               </div>
             </div>
 
@@ -247,7 +244,7 @@ const ReadingPlaza: React.FC<Props> = ({ lang, onUseStyle, onUseIdea }) => {
                      <span className="text-xs font-black text-white/80 uppercase tracking-widest">{selectedBook.style}</span>
                   </div>
                   <div className="text-[10px] font-black text-white/30 uppercase tracking-[0.4em]">
-                    SLIDE {previewIndex + 1} OF {selectedBook.pages.length}
+                    SLIDE {previewIndex + 1} OF {Math.max(1, selectedBook.pages.length)}
                   </div>
                 </div>
                 
