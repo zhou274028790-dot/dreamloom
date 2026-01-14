@@ -70,8 +70,8 @@ const Login: React.FC<Props> = ({ onLogin, onLogout, currentUser, lang }) => {
     }
   }[lang];
 
-  // 公用输入框样式：深灰色文字 (#333333)
-  const inputStyle = "w-full px-6 py-4 bg-white/50 border border-gray-100 rounded-2xl focus:ring-4 focus:ring-orange-500/10 outline-none font-bold text-sm text-[#333333] transition-all placeholder:text-gray-300";
+  // 核心样式优化：文字颜色强制深灰 (#333333)，背景使用微妙的半透明色
+  const inputStyle = "w-full px-6 py-4 bg-gray-50 border border-gray-100 rounded-2xl focus:ring-4 focus:ring-orange-500/10 outline-none font-bold text-sm text-[#333333] transition-all placeholder:text-gray-400 shadow-inner";
 
   const handleSendCode = async () => {
     if (!inputValue) {
@@ -80,7 +80,6 @@ const Login: React.FC<Props> = ({ onLogin, onLogout, currentUser, lang }) => {
     }
     setIsLoading(true);
     try {
-      // 1. 登录前必须检查账号是否存在
       const q = query(collection(db, "users"), where("username", "==", inputValue));
       const snap = await getDocs(q);
       
@@ -90,7 +89,6 @@ const Login: React.FC<Props> = ({ onLogin, onLogout, currentUser, lang }) => {
         return;
       }
 
-      // 模拟验证码发送
       setTimeout(() => {
         setIsCodeSent(true);
         setIsLoading(false);
@@ -126,7 +124,6 @@ const Login: React.FC<Props> = ({ onLogin, onLogout, currentUser, lang }) => {
           return;
         }
         
-        // 注册：将临时用户存入系统
         await addDoc(collection(db, "users"), {
           username: inputValue,
           coins: 80,
@@ -138,11 +135,10 @@ const Login: React.FC<Props> = ({ onLogin, onLogout, currentUser, lang }) => {
         setView('login');
         setIsCodeSent(false);
       } catch (e) {
-        setErrorMsg("注册失败，请稍后重试");
+        setErrorMsg("注册失败");
         setIsLoading(false);
       }
     } else {
-      // 登录
       if (!inputValue || !verificationCode) {
         setErrorMsg(t.errEmpty);
         return;
@@ -159,7 +155,7 @@ const Login: React.FC<Props> = ({ onLogin, onLogout, currentUser, lang }) => {
   if (currentUser.isLoggedIn) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center p-6 text-center">
-        <div className="max-w-[440px] w-full bg-white/90 backdrop-blur-xl p-12 rounded-[4rem] shadow-2xl flex flex-col items-center space-y-8 animate-in zoom-in-95">
+        <div className="max-w-[440px] w-full bg-white/95 backdrop-blur-xl p-12 rounded-[4rem] shadow-2xl flex flex-col items-center space-y-8 animate-in zoom-in-95">
           <div className="w-20 h-20 bg-orange-500 rounded-[2rem] flex items-center justify-center text-white text-3xl shadow-xl">
              <i className="fas fa-wand-magic-sparkles"></i>
           </div>
@@ -180,7 +176,7 @@ const Login: React.FC<Props> = ({ onLogin, onLogout, currentUser, lang }) => {
     <div className="min-h-screen flex flex-col items-center justify-center p-6 relative overflow-hidden">
       <div className="absolute top-0 inset-x-0 h-[50vh] bg-gradient-to-b from-orange-50 to-transparent"></div>
       
-      <div className="max-w-[440px] w-full bg-white/95 backdrop-blur-2xl p-10 md:p-12 rounded-[4rem] shadow-2xl border border-white flex flex-col items-center text-center space-y-8 animate-in zoom-in-95 relative z-10">
+      <div className="max-w-[440px] w-full bg-white/98 backdrop-blur-2xl p-10 md:p-12 rounded-[4rem] shadow-2xl border border-white flex flex-col items-center text-center space-y-8 animate-in zoom-in-95 relative z-10">
         <div className="w-20 h-20 bg-gradient-to-br from-orange-500 to-orange-400 rounded-[2rem] flex items-center justify-center shadow-xl rotate-3">
            <i className="fas fa-star text-white text-3xl"></i>
         </div>
@@ -241,7 +237,7 @@ const Login: React.FC<Props> = ({ onLogin, onLogout, currentUser, lang }) => {
                   type="button" 
                   onClick={handleSendCode}
                   disabled={isLoading || isCodeSent}
-                  className={`px-4 rounded-2xl text-[10px] font-black uppercase border transition-all ${isCodeSent ? 'bg-green-50 text-green-500 border-green-100' : 'bg-white text-orange-500 border-orange-100 hover:bg-orange-50'}`}
+                  className={`px-4 rounded-2xl text-[10px] font-black uppercase border transition-all ${isCodeSent ? 'bg-green-50 text-green-500 border-green-100' : 'bg-white text-orange-500 border-orange-100 hover:bg-orange-50 shadow-sm'}`}
                 >
                   {isCodeSent ? t.codeSent : t.sendCode}
                 </button>

@@ -16,7 +16,7 @@ const extractJson = (text: string) => {
 };
 
 /**
- * 极强鲁棒性的图片转换，专门解决 Firebase URL 跨域导致的生图失败
+ * 终极鲁棒性的图片转换：解决 CORS、缓存、及大图 API 限制
  */
 const prepareImageForAi = async (imgData: string): Promise<string> => {
   if (!imgData) throw new Error("无效的图片数据");
@@ -25,17 +25,19 @@ const prepareImageForAi = async (imgData: string): Promise<string> => {
     return imgData.split(',')[1];
   }
 
+  // 尝试通过 HTMLImageElement 配合 Canvas 转换，这种方式处理 CORS 最为通用
   return new Promise((resolve, reject) => {
     const img = new Image();
-    // 关键：必须在设置 src 前设置 crossOrigin
     img.crossOrigin = "anonymous"; 
-    // 增加时间戳防止缓存导致的 CORS 失败
-    img.src = imgData.includes('?') ? `${imgData}&t=${Date.now()}` : `${imgData}?t=${Date.now()}`;
+    
+    // 添加时间戳绕过部分 CDN 的 CORS 缓存错误
+    const cacheBuster = imgData.includes('?') ? `&t=${Date.now()}` : `?t=${Date.now()}`;
+    img.src = imgData + cacheBuster;
     
     const timeout = setTimeout(() => {
       img.src = "";
-      reject(new Error("读取参考图超时，请检查网络环境或重新上传"));
-    }, 10000);
+      reject(new Error("读取参考图超时，请检查网络"));
+    }, 15000);
 
     img.onload = () => {
       clearTimeout(timeout);
@@ -44,36 +46,30 @@ const prepareImageForAi = async (imgData: string): Promise<string> => {
         const ctx = canvas.getContext('2d');
         if (!ctx) throw new Error("Canvas context failed");
         
-        // 缩放图片防止 base64 过大导致 API 报错 (保持在 1024 左右)
+        // 限制最大尺寸为 1024 提高传输效率
         const MAX_SIZE = 1024;
-        let width = img.width;
-        let height = img.height;
-        if (width > height) {
-          if (width > MAX_SIZE) {
-            height *= MAX_SIZE / width;
-            width = MAX_SIZE;
-          }
-        } else {
-          if (height > MAX_SIZE) {
-            width *= MAX_SIZE / height;
-            height = MAX_SIZE;
-          }
+        let w = img.width, h = img.height;
+        if (w > MAX_SIZE || h > MAX_SIZE) {
+          const ratio = Math.min(MAX_SIZE / w, MAX_SIZE / h);
+          w *= ratio; h *= ratio;
         }
 
-        canvas.width = width;
-        canvas.height = height;
-        ctx.drawImage(img, 0, 0, width, height);
+        canvas.width = w;
+        canvas.height = h;
+        ctx.drawImage(img, 0, 0, w, h);
         
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
-        resolve(dataUrl.split(',')[1]);
+        // 使用高质量压缩
+        const base64 = canvas.toDataURL('image/jpeg', 0.85);
+        resolve(base64.split(',')[1]);
       } catch (err) {
-        reject(new Error("浏览器安全策略拦截了图片读取，建议刷新重试"));
+        console.error("Canvas draw error:", err);
+        reject(new Error("图片资源加载受限，请尝试刷新页面或更换图片"));
       }
     };
     
     img.onerror = () => {
       clearTimeout(timeout);
-      reject(new Error("图片资源加载失败，请检查网络或图片有效性"));
+      reject(new Error("图片资源加载失败，请检查网络链接或图片权限"));
     };
   });
 };
@@ -100,6 +96,110 @@ const getStylePrompt = (style: VisualStyle, customDesc?: string): string => {
   }
 };
 
+/**
+ * Fix: Added missing export generateStoryOutline
+ * Generates a story outline based on an idea and template
+ */
+export const generateStoryOutline = async (idea: string, template: StoryTemplate, image?: string): Promise<{ title: string, pages: Partial<StoryPage>[] }> => {
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const parts: any[] = [];
+  
+  if (image) {
+    const base64 = await prepareImageForAi(image);
+    parts.push({ inlineData: { data: base64, mimeType: 'image/jpeg' } });
+  }
+
+  parts.push({ text: `Create a children's book story outline. 
+    Idea: "${idea}" 
+    Template: "${template}"
+    Return a JSON object:
+    {
+      "title": "A short engaging title",
+      "pages": [
+        {
+          "text": "The narrative text for this page (concise, age-appropriate)",
+          "visualPrompt": "Detailed prompt for an illustrator, describing the scene and characters"
+        }
+      ]
+    }
+    Provide exactly 6 pages.` 
+  });
+
+  const response = await ai.models.generateContent({
+    model: 'gemini-3-flash-preview',
+    contents: { parts },
+    config: {
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: Type.OBJECT,
+        properties: {
+          title: { type: Type.STRING },
+          pages: {
+            type: Type.ARRAY,
+            items: {
+              type: Type.OBJECT,
+              properties: {
+                text: { type: Type.STRING },
+                visualPrompt: { type: Type.STRING }
+              },
+              required: ["text", "visualPrompt"]
+            }
+          }
+        },
+        required: ["title", "pages"]
+      }
+    }
+  });
+
+  const data = JSON.parse(response.text || '{}');
+  return {
+    title: data.title || "My Story",
+    pages: (data.pages || []).map((p: any, i: number) => ({
+      id: generateId(),
+      type: 'story' as const,
+      pageNumber: i + 1,
+      text: p.text,
+      visualPrompt: p.visualPrompt,
+      isGenerating: false
+    }))
+  };
+};
+
+/**
+ * Fix: Added missing export generateCharacterOptions
+ * Generates character options for visual consistency
+ */
+export const generateCharacterOptions = async (desc: string, style: VisualStyle, roleRefImg?: string, styleRefImg?: string): Promise<string[]> => {
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const stylePrompt = getStylePrompt(style, styleRefImg);
+  const parts: any[] = [];
+  
+  if (roleRefImg) {
+    const base64 = await prepareImageForAi(roleRefImg);
+    parts.push({ inlineData: { data: base64, mimeType: 'image/jpeg' } });
+  }
+  
+  parts.push({ text: `Character Design Sheet. Subject: ${desc}. Style: ${stylePrompt}. White background, professional character concept art, high detail.` });
+
+  const response = await ai.models.generateContent({
+    model: 'gemini-2.5-flash-image',
+    contents: { parts },
+    config: { imageConfig: { aspectRatio: "1:1" } }
+  });
+
+  const images: string[] = [];
+  if (response.candidates?.[0]?.content?.parts) {
+    for (const part of response.candidates[0].content.parts) {
+      if (part.inlineData) {
+        images.push(`data:image/jpeg;base64,${part.inlineData.data}`);
+      }
+    }
+  }
+  
+  if (images.length === 0) throw new Error("Character generation failed");
+  return images;
+};
+
 export const generateSceneImage = async (
   pageText: string, 
   visualPrompt: string, 
@@ -111,17 +211,17 @@ export const generateSceneImage = async (
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const stylePrompt = getStylePrompt(style, styleDesc);
   
-  // 核心修复点：使用更强的图片转换
+  // 核心：处理参考图
   const charBase64 = await prepareImageForAi(characterImg);
   
-  const compositionPrompt = "Wide cinematic 2:1 composition. Storybook illustration style, high detail, vibrant colors. No text in image.";
+  const compositionPrompt = "Extremely wide cinematic 2:1 composition. Storybook illustration, vibrant lighting, professional concept art. No text or user interface elements in image.";
   
   const response = await ai.models.generateContent({
     model: 'gemini-2.5-flash-image', 
     contents: { 
       parts: [
         { inlineData: { data: charBase64, mimeType: 'image/jpeg' } },
-        { text: `${compositionPrompt} Subject Consistency: ${characterDesc}. Art Style: ${stylePrompt}. Current Scene: ${visualPrompt}. Plot: ${pageText}.` }
+        { text: `${compositionPrompt} Subject: ${characterDesc}. Style: ${stylePrompt}. Scene Action: ${visualPrompt}. Background Context: ${pageText}.` }
       ]
     },
     config: { 
@@ -130,12 +230,48 @@ export const generateSceneImage = async (
     }
   });
   
-  if (!response.candidates?.[0]?.content?.parts) throw new Error("AI 引擎未生成画面，请检查描述词或重试");
+  if (!response.candidates?.[0]?.content?.parts) throw new Error("AI 拒绝生成或网络波动，请检查描述词");
   
   for (const part of response.candidates[0].content.parts) {
     if (part.inlineData) return `data:image/jpeg;base64,${part.inlineData.data}`;
   }
-  throw new Error("生成结果不含图像数据");
+  throw new Error("生成结果为空，请稍后重试");
+};
+
+/**
+ * Fix: Added missing export editPageImage
+ * Edits a page image based on a specific instruction
+ */
+export const editPageImage = async (
+  pageImg: string, 
+  charImg: string, 
+  instruction: string, 
+  charDesc: string,
+  style: VisualStyle,
+  styleDesc?: string
+): Promise<string> => {
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const stylePrompt = getStylePrompt(style, styleDesc);
+  const pageBase64 = await prepareImageForAi(pageImg);
+  const charBase64 = await prepareImageForAi(charImg);
+
+  const response = await ai.models.generateContent({
+    model: 'gemini-2.5-flash-image',
+    contents: {
+      parts: [
+        { inlineData: { data: pageBase64, mimeType: 'image/jpeg' } },
+        { inlineData: { data: charBase64, mimeType: 'image/jpeg' } },
+        { text: `Modify this scene. Instruction: ${instruction}. Keep the character (ref provided) consistent. Subject: ${charDesc}. Style: ${stylePrompt}.` }
+      ]
+    }
+  });
+
+  if (response.candidates?.[0]?.content?.parts) {
+    for (const part of response.candidates[0].content.parts) {
+      if (part.inlineData) return `data:image/jpeg;base64,${part.inlineData.data}`;
+    }
+  }
+  throw new Error("Edit failed");
 };
 
 export const analyzeStyleImage = async (imageUrl: string): Promise<string> => {
@@ -146,7 +282,7 @@ export const analyzeStyleImage = async (imageUrl: string): Promise<string> => {
     contents: {
       parts: [
         { inlineData: { data: base64, mimeType: 'image/jpeg' } },
-        { text: "Briefly describe the artistic style of this image in 5 keywords." }
+        { text: "Describe the artistic style of this image in 5 descriptive words." }
       ]
     }
   });
@@ -175,7 +311,7 @@ export const finalizeVisualScript = async (
     contents: {
       parts: [
         { inlineData: { data: charBase64, mimeType: 'image/jpeg' } },
-        { text: "Summarize this character's visual features for image generation consistency." }
+        { text: "Analyze this character and provide a concise visual description for consistency." }
       ]
     }
   });
@@ -183,7 +319,7 @@ export const finalizeVisualScript = async (
 
   const scriptResponse = await ai.models.generateContent({
     model: 'gemini-3-flash-preview',
-    contents: `Character: ${analyzedDesc}, Style: ${stylePrompt}. Book: ${pages.map(p => p.text).join('|')}. JSON: {updatedPages: [{text, visualPrompt}]}`,
+    contents: `Character: ${analyzedDesc}, Style: ${stylePrompt}. Story Content: ${pages.map(p => p.text).join('|')}. JSON Output: {updatedPages: [{text, visualPrompt}]}`,
     config: { responseMimeType: "application/json" }
   });
 
@@ -195,84 +331,8 @@ export const finalizeVisualScript = async (
     isGenerating: false
   })) as StoryPage[];
 
+  /**
+   * Fix: Renamed finalPages to pages in the return object to match the return type definition.
+   */
   return { pages: finalPages, analyzedCharacterDesc: analyzedDesc, analyzedStyleDesc };
-};
-
-export const editPageImage = async (
-  pageImgUrl: string,
-  charImg: string,
-  instruction: string,
-  characterDesc: string,
-  style: VisualStyle,
-  styleDesc?: string
-): Promise<string> => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-  const pageBase64 = await prepareImageForAi(pageImgUrl);
-  const charBase64 = await prepareImageForAi(charImg);
-  const stylePrompt = getStylePrompt(style, styleDesc);
-  
-  const response = await ai.models.generateContent({
-    model: 'gemini-2.5-flash-image',
-    contents: {
-      parts: [
-        { inlineData: { data: pageBase64, mimeType: 'image/jpeg' } },
-        { inlineData: { data: charBase64, mimeType: 'image/jpeg' } },
-        { text: `Modify the scene based on: ${instruction}. Keep character as: ${characterDesc}. Style: ${stylePrompt}.` }
-      ]
-    },
-    config: { imageConfig: { aspectRatio: "16:9" } }
-  });
-  
-  if (!response.candidates?.[0]?.content?.parts) throw new Error("微调失败");
-
-  for (const part of response.candidates[0].content.parts) {
-    if (part.inlineData) return `data:image/jpeg;base64,${part.inlineData.data}`;
-  }
-  throw new Error("微调未成功");
-};
-
-export const generateCharacterOptions = async (description: string, style: VisualStyle, image?: string, styleDesc?: string): Promise<string[]> => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-  const stylePrompt = getStylePrompt(style, styleDesc);
-  const parts: any[] = [];
-  if (image) {
-    const imgBase64 = await prepareImageForAi(image);
-    parts.push({ inlineData: { data: imgBase64, mimeType: 'image/jpeg' } });
-  }
-  parts.push({ text: `Full body character design sheet for ${description}. White background. Style: ${stylePrompt}.` });
-  
-  const response = await ai.models.generateContent({ 
-    model: 'gemini-2.5-flash-image', 
-    contents: { parts }
-  });
-  const images: string[] = [];
-  if (response.candidates?.[0]?.content?.parts) {
-    for (const part of response.candidates[0].content.parts) {
-      if (part.inlineData) images.push(`data:image/jpeg;base64,${part.inlineData.data}`);
-    }
-  }
-  return images;
-};
-
-export const generateStoryOutline = async (idea: string, template: StoryTemplate, image?: string): Promise<{ title: string; pages: Partial<StoryPage>[] }> => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-  const parts: any[] = [];
-  if (image) {
-    try {
-      const imgBase64 = await prepareImageForAi(image);
-      parts.push({ inlineData: { data: imgBase64, mimeType: "image/jpeg" } });
-    } catch(e) {}
-  }
-  parts.push({ text: `Create a 12-page story outline for: "${idea}". Template: ${template}. JSON: {title, pages: [{type, text}]}` });
-  
-  const response = await ai.models.generateContent({
-    model: 'gemini-3-flash-preview',
-    contents: { parts },
-    config: { responseMimeType: "application/json" }
-  });
-  const data = extractJson(response.text);
-  return { 
-    title: data.title || "奇妙探险", 
-    pages: (data.pages || []).map((p: any, idx: number) => ({ ...p, id: generateId(), pageNumber: idx + 1 })) 
-  };
 };

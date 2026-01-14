@@ -106,8 +106,8 @@ const MyProfile: React.FC<Props> = ({ user, setUser, handleLogout, lang, setLang
     }
   };
 
-  // 统一动态输入框样式
-  const inputClassName = `w-full px-8 py-5 rounded-[2rem] border border-[var(--border-color)] focus:ring-4 focus:ring-orange-500/20 outline-none font-bold shadow-inner transition-all bg-[var(--text-main)]/[0.08] text-[var(--text-main)]`;
+  // 统一动态输入框样式：使用白色半透明，在深色背景下会自动变现为同色系的浅色
+  const inputClassName = `w-full px-8 py-5 rounded-[2rem] border border-[var(--border-color)] focus:ring-4 focus:ring-orange-500/20 outline-none font-bold shadow-inner transition-all bg-white/10 text-[var(--text-main)] placeholder:text-[var(--text-main)]/30`;
 
   return (
     <div className="max-w-5xl mx-auto flex flex-col md:flex-row gap-8 animate-in relative">
@@ -139,7 +139,7 @@ const MyProfile: React.FC<Props> = ({ user, setUser, handleLogout, lang, setLang
       )}
 
       <div className="md:w-64 space-y-4">
-        <div className="card-dynamic rounded-[2.5rem] p-8 text-center space-y-6">
+        <div className="card-dynamic rounded-[2.5rem] p-8 text-center space-y-6 bg-[var(--card-bg)] border border-[var(--border-color)]">
           <div className="relative mx-auto w-20 h-20">
              <div className="absolute inset-0 bg-orange-500 rounded-full blur-lg opacity-20"></div>
              <div className="relative w-20 h-20 bg-gradient-to-br from-orange-500 to-orange-400 rounded-full flex items-center justify-center text-white text-3xl shadow-inner">
@@ -147,7 +147,7 @@ const MyProfile: React.FC<Props> = ({ user, setUser, handleLogout, lang, setLang
              </div>
           </div>
           <div className="space-y-1">
-            <h3 className="font-bold text-lg font-header">{user.username}</h3>
+            <h3 className="font-bold text-lg font-header" style={{ color: 'var(--text-main)' }}>{user.username}</h3>
             <span className="inline-block px-3 py-0.5 bg-[#EA6F23]/10 text-[#EA6F23] rounded-full text-[9px] font-black uppercase tracking-widest">造梦专家</span>
           </div>
         </div>
@@ -224,7 +224,7 @@ const MyProfile: React.FC<Props> = ({ user, setUser, handleLogout, lang, setLang
                        <button 
                         key={color.value}
                         onClick={() => setBgColor(color.value)}
-                        className={`group flex flex-col items-center gap-2 p-4 rounded-2xl border-2 transition-all ${bgColor === color.value ? 'border-orange-500 bg-orange-50/10' : 'border-[var(--border-color)] bg-[var(--text-main)]/[0.05]'}`}
+                        className={`group flex flex-col items-center gap-2 p-4 rounded-2xl border-2 transition-all ${bgColor === color.value ? 'border-orange-500 bg-orange-50/10' : 'border-[var(--border-color)] bg-white/5'}`}
                        >
                          <div className="w-8 h-8 rounded-full border border-black/5 shadow-sm" style={{ backgroundColor: color.value }}></div>
                          <span className={`text-[10px] font-black ${bgColor === color.value ? 'text-orange-600' : 'opacity-40'}`} style={{ color: bgColor === color.value ? undefined : 'var(--text-main)' }}>{color.name}</span>
