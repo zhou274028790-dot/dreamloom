@@ -51,7 +51,6 @@ const DirectorMode: React.FC<Props> = ({ project, onNext, onBack, userCoins, ded
     const page = pages[index];
     if (page.isGenerating) return;
     
-    // 预扣费校验
     if (!deductCoins(5)) return;
 
     setPages(prev => {
@@ -210,7 +209,7 @@ const DirectorMode: React.FC<Props> = ({ project, onNext, onBack, userCoins, ded
                      <textarea 
                       value={page.text} 
                       onChange={(e) => { const np = [...pages]; np[idx].text = e.target.value; setPages(np); onNext({pages: np}); }} 
-                      className="w-full p-6 bg-[var(--card-bg)] rounded-[2rem] shadow-sm border border-[var(--border-color)] font-bold text-center outline-none resize-none focus:ring-4 focus:ring-[#EA6F23]/5 transition-all min-h-[100px]" 
+                      className="w-full p-6 bg-[var(--text-main)]/5 rounded-[2rem] shadow-sm border border-[var(--text-main)]/10 font-bold text-center outline-none resize-none focus:ring-4 focus:ring-[#EA6F23]/5 transition-all min-h-[100px] text-[var(--text-main)] placeholder:text-[var(--text-main)]/20" 
                       placeholder="在这里记录你的奇妙情节..."
                      />
                    </div>
@@ -243,8 +242,8 @@ const DirectorMode: React.FC<Props> = ({ project, onNext, onBack, userCoins, ded
         </button>
       </div>
 
-      <div className="fixed bottom-0 left-0 right-0 bg-white/80 backdrop-blur-3xl p-6 border-t border-[var(--border-color)] flex justify-between items-center max-w-7xl mx-auto rounded-t-[3rem] shadow-2xl z-50">
-        <button onClick={onBack} className="px-6 py-3 font-bold opacity-30 hover:opacity-100 transition-opacity text-sm">返回</button>
+      <div className="fixed bottom-0 left-0 right-0 bg-[var(--card-bg)]/80 backdrop-blur-3xl p-6 border-t border-[var(--border-color)] flex justify-between items-center max-w-7xl mx-auto rounded-t-[3rem] shadow-2xl z-50">
+        <button onClick={onBack} className="px-6 py-3 font-bold opacity-30 hover:opacity-100 transition-opacity text-sm" style={{ color: 'var(--text-main)' }}>返回</button>
         <div className="flex items-center gap-2 px-6 py-2 bg-orange-50 rounded-full border border-orange-100">
            <span className="text-[10px] font-black uppercase tracking-widest text-[#EA6F23]">{activeIndex + 1} / {pages.length} 页</span>
         </div>
@@ -255,12 +254,17 @@ const DirectorMode: React.FC<Props> = ({ project, onNext, onBack, userCoins, ded
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[100] flex items-center justify-center p-6 animate-in fade-in">
           <div className="bg-[var(--card-bg)] w-full max-w-md rounded-[3rem] p-10 space-y-8 shadow-2xl animate-in zoom-in-95 border border-[var(--border-color)]">
              <div className="space-y-2 text-center">
-               <h3 className="text-xl font-bold font-header">魔棒微调</h3>
-               <p className="text-[10px] opacity-50 font-medium">告诉 AI 你想如何改变画面构图或细节。</p>
+               <h3 className="text-xl font-bold font-header" style={{ color: 'var(--text-main)' }}>魔棒微调</h3>
+               <p className="text-[10px] opacity-50 font-medium" style={{ color: 'var(--text-main)' }}>告诉 AI 你想如何改变画面构图或细节。</p>
              </div>
-             <textarea value={polishInstruction} onChange={(e) => setPolishInstruction(e.target.value)} placeholder="比如：让主角站在画面左侧三分之一处..." className="w-full h-24 p-4 bg-[var(--text-main)]/5 border border-[var(--border-color)] rounded-2xl outline-none font-bold text-sm" />
+             <textarea 
+              value={polishInstruction} 
+              onChange={(e) => setPolishInstruction(e.target.value)} 
+              placeholder="比如：让主角站在画面左侧三分之一处..." 
+              className="w-full h-24 p-4 bg-[var(--text-main)]/5 border border-[var(--border-color)] rounded-2xl outline-none font-bold text-sm text-[var(--text-main)] placeholder:text-[var(--text-main)]/20" 
+             />
              <div className="flex gap-4">
-               <button onClick={() => setPolishingIndex(null)} className="flex-1 py-3 font-bold opacity-30 text-sm">取消</button>
+               <button onClick={() => setPolishingIndex(null)} className="flex-1 py-3 font-bold opacity-30 text-sm" style={{ color: 'var(--text-main)' }}>取消</button>
                <button onClick={handlePolishSubmit} className="flex-1 py-3 bg-blue-600 text-white rounded-2xl font-bold shadow-xl active:scale-95 transition-all text-sm">确认微调 (5🌿)</button>
              </div>
           </div>
