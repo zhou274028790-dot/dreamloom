@@ -63,7 +63,7 @@ const MyProfile: React.FC<Props> = ({ user, setUser, handleLogout, lang, setLang
       continue: '继续造梦',
       editName: '修改用户名',
       save: '保存',
-      switchLang: '语言切换',
+      switchLang: '语言设置',
       switchBg: '页面背景色',
       empty: '暂无订单记录',
       logout: '退出当前账号',
@@ -110,8 +110,7 @@ const MyProfile: React.FC<Props> = ({ user, setUser, handleLogout, lang, setLang
     }
   };
 
-  // 关键优化：不再使用 bg-white/10（这在深色模式下依然很亮），而是使用 bg-[var(--text-main)]/10
-  // 这样它会基于文字颜色（深色模式下为白，浅色模式下为深褐）自动调整透明度，呈现出同色系的“微亮/微暗”效果
+  // 视觉修正：输入框使用透明混合色，在深色背景下表现为同色系浅色
   const inputClassName = `w-full px-8 py-5 rounded-[2rem] border border-[var(--border-color)] focus:ring-4 focus:ring-orange-500/20 outline-none font-bold shadow-inner transition-all bg-[var(--text-main)]/10 text-[var(--text-main)] placeholder:text-[var(--text-main)]/30`;
 
   return (
@@ -153,7 +152,7 @@ const MyProfile: React.FC<Props> = ({ user, setUser, handleLogout, lang, setLang
           </div>
           <div className="space-y-1">
             <h3 className="font-bold text-lg font-header" style={{ color: 'var(--text-main)' }}>{user.username}</h3>
-            <span className="inline-block px-3 py-0.5 bg-[#EA6F23]/10 text-[#EA6F23] rounded-full text-[9px] font-black uppercase tracking-widest">造梦专家</span>
+            <span className="inline-block px-3 py-0.5 bg-orange-500/10 text-orange-500 rounded-full text-[9px] font-black uppercase tracking-widest">造梦专家</span>
           </div>
         </div>
         <nav className="space-y-2">
@@ -181,11 +180,10 @@ const MyProfile: React.FC<Props> = ({ user, setUser, handleLogout, lang, setLang
                <div className="space-y-8 py-4">
                   <div className="space-y-2 text-center sm:text-left">
                     <h4 className="font-header font-bold text-xl" style={{ color: 'var(--text-main)' }}>{t.rechargeTitle}</h4>
-                    <p className="text-xs opacity-40 font-medium" style={{ color: 'var(--text-main)' }}>在线购买或使用您在店铺获得的激活码。</p>
+                    <p className="text-xs opacity-40 font-medium" style={{ color: 'var(--text-main)' }}>在线购买或使用激活码。如果没有码，可点击下方购买。</p>
                   </div>
                   
                   <div className="space-y-6">
-                    {/* 新增：在线购买链接 */}
                     <button 
                       onClick={() => window.open('https://www.xiaohongshu.com', '_blank')}
                       className="w-full py-5 bg-orange-500 text-white rounded-[2rem] font-bold shadow-lg hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-3"
@@ -212,7 +210,7 @@ const MyProfile: React.FC<Props> = ({ user, setUser, handleLogout, lang, setLang
                       <button 
                         onClick={handleRedeem}
                         disabled={!redeemCodeInput.trim()}
-                        className="w-full py-4 bg-[var(--text-main)] text-[var(--card-bg)] rounded-[1.5rem] font-bold text-sm shadow-md active:scale-95 transition-all disabled:opacity-40"
+                        className="w-full py-4 bg-orange-500 text-white rounded-[1.5rem] font-bold text-sm shadow-md active:scale-95 transition-all disabled:opacity-40"
                       >
                         {t.redeemBtn}
                       </button>
@@ -247,6 +245,14 @@ const MyProfile: React.FC<Props> = ({ user, setUser, handleLogout, lang, setLang
                       style={{ padding: '1rem 1.5rem', borderRadius: '1.5rem' }}
                      />
                      <button onClick={handleUpdateName} className="px-8 py-4 bg-orange-500 text-white rounded-2xl font-bold shadow-lg active:scale-95 transition-all">{t.save}</button>
+                  </div>
+               </div>
+
+               <div className="space-y-4">
+                  <h4 className="text-sm font-black opacity-30 uppercase tracking-widest" style={{ color: 'var(--text-main)' }}>{t.switchLang}</h4>
+                  <div className="flex gap-2">
+                     <button onClick={() => setLang('zh')} className={`flex-1 py-4 rounded-2xl font-bold border transition-all ${lang === 'zh' ? 'bg-orange-500 text-white border-transparent shadow-lg' : 'bg-[var(--text-main)]/5 border-[var(--border-color)] opacity-40 text-[var(--text-main)]'}`}>简体中文</button>
+                     <button onClick={() => setLang('en')} className={`flex-1 py-4 rounded-2xl font-bold border transition-all ${lang === 'en' ? 'bg-orange-500 text-white border-transparent shadow-lg' : 'bg-[var(--text-main)]/5 border-[var(--border-color)] opacity-40 text-[var(--text-main)]'}`}>English</button>
                   </div>
                </div>
 
