@@ -15,7 +15,7 @@ interface PlazaBook {
   title: string;
   author: string;
   likes: number;
-  cover_url: string; // 使用 Firestore 中的 cover_url
+  cover_url: string;
   style: VisualStyle;
   idea: string;
   pages: { text: string; image: string }[];
@@ -28,7 +28,6 @@ const ReadingPlaza: React.FC<Props> = ({ lang, onUseStyle, onUseIdea }) => {
   const [selectedBook, setSelectedBook] = useState<PlazaBook | null>(null);
   const [previewIndex, setPreviewIndex] = useState(0);
 
-  // 1. 获取 Firestore 数据
   useEffect(() => {
     const fetchPlazaData = async () => {
       setIsLoading(true);
@@ -36,6 +35,12 @@ const ReadingPlaza: React.FC<Props> = ({ lang, onUseStyle, onUseIdea }) => {
         const querySnapshot = await getDocs(collection(db, "plaza_stories"));
         const fetchedBooks: PlazaBook[] = querySnapshot.docs.map(doc => {
           const data = doc.data();
+          // 兼容性处理：有些旧数据可能用的是 imageUrl 而不是 image
+          const formattedPages = (data.pages || []).map((p: any) => ({
+            text: p.text || '',
+            image: p.image || p.imageUrl || data.cover_url // 确保每一页都有有效的图片引用
+          }));
+
           return {
             id: doc.id,
             title: data.title || (lang === 'zh' ? '无题' : 'Untitled'),
@@ -44,7 +49,7 @@ const ReadingPlaza: React.FC<Props> = ({ lang, onUseStyle, onUseIdea }) => {
             cover_url: data.cover_url || 'https://images.unsplash.com/photo-1532012197267-da84d127e765?auto=format&fit=crop&w=800&q=80',
             style: data.style as VisualStyle || VisualStyle.WATERCOLOR,
             idea: data.idea || '',
-            pages: data.pages || []
+            pages: formattedPages
           };
         });
         setBooks(fetchedBooks);
@@ -91,10 +96,9 @@ const ReadingPlaza: React.FC<Props> = ({ lang, onUseStyle, onUseIdea }) => {
     setPreviewIndex(0);
   };
 
-  // 根据过滤器排序
   const sortedBooks = [...books].sort((a, b) => {
     if (filter === 'hot') return b.likes - a.likes;
-    return 0; // 最新逻辑可以基于 doc 里的 timestamp
+    return 0;
   });
 
   return (
@@ -127,24 +131,15 @@ const ReadingPlaza: React.FC<Props> = ({ lang, onUseStyle, onUseIdea }) => {
           {sortedBooks.map(book => (
             <div key={book.id} className="card-dynamic rounded-[2.5rem] overflow-hidden group hover:-translate-y-2 flex flex-col shadow-lg border border-[var(--border-color)]">
               <div className="relative aspect-square overflow-hidden cursor-pointer" onClick={() => handleOpenBook(book)}>
-                {/* 关键修改：使用 Firestore 中的 cover_url */}
                 <img src={book.cover_url} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" alt={book.title} />
-                
                 <div className="absolute top-4 left-4 bg-white/95 backdrop-blur-sm px-3 py-1 rounded-full text-xs font-bold text-[#EA6F23] flex items-center gap-1 shadow-md z-10">
                   <i className="fas fa-heart text-[10px]"></i> {book.likes}
                 </div>
-
                 <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-all flex flex-col justify-end p-6 gap-3 z-20">
-                   <button 
-                    onClick={(e) => { e.stopPropagation(); onUseStyle(book.style); }} 
-                    className="btn-candy w-full py-2.5 text-white rounded-xl font-bold shadow-lg hover:scale-105 transition-transform flex items-center justify-center gap-2 text-xs"
-                   >
+                   <button onClick={(e) => { e.stopPropagation(); onUseStyle(book.style); }} className="btn-candy w-full py-2.5 text-white rounded-xl font-bold shadow-lg hover:scale-105 transition-transform flex items-center justify-center gap-2 text-xs">
                      <i className="fas fa-palette"></i> {t.useStyle}
                    </button>
-                   <button 
-                    onClick={(e) => { e.stopPropagation(); onUseIdea(book.idea); }} 
-                    className="w-full py-2.5 bg-white text-[#EA6F23] rounded-xl font-bold shadow-lg hover:scale-105 transition-transform flex items-center justify-center gap-2 text-xs"
-                   >
+                   <button onClick={(e) => { e.stopPropagation(); onUseIdea(book.idea); }} className="w-full py-2.5 bg-white text-[#EA6F23] rounded-xl font-bold shadow-lg hover:scale-105 transition-transform flex items-center justify-center gap-2 text-xs">
                      <i className="fas fa-pen-nib"></i> {t.useIdea}
                    </button>
                 </div>
@@ -154,10 +149,7 @@ const ReadingPlaza: React.FC<Props> = ({ lang, onUseStyle, onUseIdea }) => {
                   <h3 className="text-lg font-bold font-header line-clamp-1" style={{ color: 'var(--text-main)' }}>{book.title}</h3>
                   <p className="text-[10px] opacity-40 font-bold uppercase tracking-widest mt-1">@ {book.author}</p>
                 </div>
-                <button 
-                  onClick={() => handleOpenBook(book)}
-                  className="w-10 h-10 rounded-full bg-[#EA6F23]/10 text-[#EA6F23] flex items-center justify-center hover:bg-[#EA6F23] hover:text-white transition-all shadow-sm"
-                >
+                <button onClick={() => handleOpenBook(book)} className="w-10 h-10 rounded-full bg-[#EA6F23]/10 text-[#EA6F23] flex items-center justify-center hover:bg-[#EA6F23] hover:text-white transition-all shadow-sm">
                   <i className="fas fa-book-open text-xs"></i>
                 </button>
               </div>
@@ -166,88 +158,92 @@ const ReadingPlaza: React.FC<Props> = ({ lang, onUseStyle, onUseIdea }) => {
         </div>
       )}
 
-      {/* Immersive Book Preview Modal */}
+      {/* 沉浸式巨幕阅读器 - UI 深度优化 */}
       {selectedBook && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-8">
-          <div className="absolute inset-0 bg-[var(--text-main)]/90 backdrop-blur-xl animate-in fade-in" onClick={() => setSelectedBook(null)}></div>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-0 md:p-6 lg:p-10">
+          <div className="absolute inset-0 bg-black/95 backdrop-blur-2xl animate-in fade-in" onClick={() => setSelectedBook(null)}></div>
           
-          <div className="relative w-full max-w-4xl max-h-[90vh] bg-[var(--card-bg)] rounded-[3rem] overflow-hidden shadow-2xl animate-in zoom-in-95 flex flex-col md:flex-row">
+          <div className="relative w-full h-full md:max-w-6xl md:max-h-[90vh] bg-[var(--card-bg)] rounded-none md:rounded-[4rem] overflow-hidden shadow-2xl animate-in zoom-in-95 flex flex-col">
             
-            <button 
-              onClick={() => setSelectedBook(null)}
-              className="absolute top-6 right-6 w-10 h-10 rounded-full bg-white/20 backdrop-blur text-white flex items-center justify-center z-[110] hover:bg-white/40 transition-all"
-            >
-              <i className="fas fa-times"></i>
-            </button>
+            {/* 顶部控制栏 */}
+            <div className="absolute top-0 inset-x-0 h-20 px-8 flex justify-between items-center z-[120] bg-gradient-to-b from-black/60 to-transparent pointer-events-none">
+                <div className="pointer-events-auto">
+                   <h3 className="text-white text-xl font-bold font-header drop-shadow-md">{selectedBook.title}</h3>
+                   <p className="text-white/60 text-[10px] font-black uppercase tracking-widest mt-0.5">@ {selectedBook.author}</p>
+                </div>
+                <button 
+                  onClick={() => setSelectedBook(null)}
+                  className="w-12 h-12 rounded-full bg-white/20 backdrop-blur-md text-white flex items-center justify-center pointer-events-auto hover:bg-white/40 transition-all border border-white/20"
+                >
+                  <i className="fas fa-times text-xl"></i>
+                </button>
+            </div>
 
-            <div className="flex-1 bg-black/5 flex flex-col relative overflow-hidden group min-h-[300px]">
-              <div className="flex-1 flex items-center justify-center p-4 md:p-8">
+            {/* 巨幕图片展示区 */}
+            <div className="flex-1 relative group flex items-center justify-center bg-black/20">
+              {/* 图片层 */}
+              <div className="w-full h-full p-4 md:p-8 flex items-center justify-center">
                  <img 
-                    key={previewIndex}
+                    key={`reader-img-${previewIndex}`} // 关键：使用 key 强制刷新
                     src={selectedBook.pages[previewIndex]?.image || selectedBook.cover_url} 
-                    className="max-w-full max-h-full object-contain rounded-2xl shadow-2xl animate-in fade-in"
-                    alt="Page" 
+                    className="max-w-full max-h-full object-contain rounded-2xl shadow-[0_30px_60px_-15px_rgba(0,0,0,0.5)] transition-all duration-700 animate-in fade-in"
+                    alt={`Page ${previewIndex + 1}`} 
                  />
               </div>
 
-              <button 
-                onClick={() => setPreviewIndex(p => Math.max(0, p - 1))}
-                disabled={previewIndex === 0}
-                className="absolute left-4 top-1/2 -translate-y-1/2 w-12 h-12 bg-white/90 rounded-full flex items-center justify-center text-[#EA6F23] shadow-xl disabled:opacity-0 transition-all hover:scale-110 active:scale-90"
-              >
-                <i className="fas fa-chevron-left"></i>
-              </button>
-              <button 
-                onClick={() => setPreviewIndex(p => Math.min(selectedBook.pages.length - 1, p + 1))}
-                disabled={previewIndex === selectedBook.pages.length - 1}
-                className="absolute right-4 top-1/2 -translate-y-1/2 w-12 h-12 bg-white/90 rounded-full flex items-center justify-center text-[#EA6F23] shadow-xl disabled:opacity-0 transition-all hover:scale-110 active:scale-90"
-              >
-                <i className="fas fa-chevron-right"></i>
-              </button>
+              {/* 翻页导航按钮 */}
+              <div className="absolute inset-y-0 left-0 right-0 flex justify-between items-center px-4 md:px-8 pointer-events-none">
+                <button 
+                  onClick={() => setPreviewIndex(p => Math.max(0, p - 1))}
+                  disabled={previewIndex === 0}
+                  className="w-14 h-14 md:w-16 md:h-16 bg-white/90 rounded-full flex items-center justify-center text-[#EA6F23] shadow-2xl disabled:opacity-0 transition-all hover:scale-110 active:scale-90 pointer-events-auto border-4 border-orange-50"
+                >
+                  <i className="fas fa-chevron-left text-xl"></i>
+                </button>
+                <button 
+                  onClick={() => setPreviewIndex(p => Math.min(selectedBook.pages.length - 1, p + 1))}
+                  disabled={previewIndex === selectedBook.pages.length - 1}
+                  className="w-14 h-14 md:w-16 md:h-16 bg-white/90 rounded-full flex items-center justify-center text-[#EA6F23] shadow-2xl disabled:opacity-0 transition-all hover:scale-110 active:scale-90 pointer-events-auto border-4 border-orange-50"
+                >
+                  <i className="fas fa-chevron-right text-xl"></i>
+                </button>
+              </div>
 
-              <div className="absolute bottom-6 left-0 right-0 flex justify-center gap-2">
+              {/* 底部悬浮文字层 */}
+              <div className="absolute bottom-12 inset-x-0 px-6 md:px-12 pointer-events-none">
+                 <div className="max-w-3xl mx-auto bg-white/20 backdrop-blur-xl p-6 md:p-8 rounded-[2.5rem] border border-white/20 shadow-2xl pointer-events-auto">
+                    <p className="text-white text-lg md:text-2xl text-center leading-relaxed font-bold italic drop-shadow-sm">
+                      "{selectedBook.pages[previewIndex]?.text || ''}"
+                    </p>
+                 </div>
+              </div>
+
+              {/* 进度指示器 */}
+              <div className="absolute bottom-6 left-0 right-0 flex justify-center gap-2 z-[110]">
                 {selectedBook.pages.map((_, i) => (
-                  <div key={i} className={`h-1.5 rounded-full transition-all ${i === previewIndex ? 'w-6 bg-[#EA6F23]' : 'w-1.5 bg-[var(--text-sub)] opacity-30'}`}></div>
+                  <div key={`dot-${i}`} className={`h-2 rounded-full transition-all duration-500 ${i === previewIndex ? 'w-10 bg-[#EA6F23]' : 'w-2 bg-white/30'}`}></div>
                 ))}
               </div>
             </div>
 
-            <div className="w-full md:w-80 p-8 flex flex-col justify-between border-l border-[var(--border-color)] bg-[var(--card-bg)]">
-              <div className="space-y-6">
-                <div>
-                  <h3 className="text-2xl font-header font-bold" style={{ color: 'var(--text-main)' }}>{selectedBook.title}</h3>
-                  <p className="text-xs font-bold opacity-40 uppercase tracking-[0.2em] mt-1">BY @{selectedBook.author}</p>
+            {/* 底部功能区 - 压缩高度，留出更多空间给图 */}
+            <div className="bg-[var(--card-bg)] px-8 py-4 flex flex-col md:flex-row items-center justify-between gap-4 border-t border-[var(--border-color)]">
+                <div className="flex items-center gap-4">
+                  <div className="px-4 py-2 bg-orange-50 rounded-2xl flex items-center gap-3">
+                     <i className="fas fa-magic text-[#EA6F23]"></i>
+                     <span className="text-xs font-bold text-[#EA6F23] uppercase tracking-widest">{selectedBook.style}</span>
+                  </div>
+                  <span className="text-[10px] font-black opacity-20 uppercase tracking-[0.3em]">{previewIndex + 1} / {selectedBook.pages.length} PAGES</span>
                 </div>
                 
-                <div className="p-4 bg-[var(--text-main)]/5 rounded-2xl">
-                  <p className="text-sm leading-relaxed font-medium italic opacity-80" style={{ color: 'var(--text-main)' }}>
-                    "{selectedBook.pages[previewIndex]?.text || ''}"
-                  </p>
+                <div className="flex gap-4 w-full md:w-auto">
+                  <button onClick={() => onUseIdea(selectedBook.idea)} className="flex-1 md:flex-none px-8 py-3 bg-[var(--text-main)]/5 text-[var(--text-main)] rounded-2xl font-bold text-sm hover:bg-orange-50 transition-all border border-[var(--border-color)] flex items-center justify-center gap-2">
+                    <i className="fas fa-pen-nib text-xs"></i> {t.useIdea}
+                  </button>
+                  <button onClick={() => onUseStyle(selectedBook.style)} className="flex-1 md:flex-none px-10 py-3 btn-candy text-white rounded-2xl font-bold text-sm shadow-xl hover:-translate-y-1 transition-all flex items-center justify-center gap-2">
+                    <i className="fas fa-palette text-xs"></i> {t.useStyle}
+                  </button>
                 </div>
-
-                <div className="flex items-center gap-3">
-                   <div className="w-10 h-10 bg-[#EA6F23]/10 text-[#EA6F23] rounded-xl flex items-center justify-center"><i className="fas fa-magic"></i></div>
-                   <div>
-                     <p className="text-[10px] font-black opacity-30 uppercase tracking-widest leading-none mb-1">VISUAL STYLE</p>
-                     <p className="text-xs font-bold text-[#EA6F23]">{selectedBook.style}</p>
-                   </div>
-                </div>
-              </div>
-
-              <div className="space-y-3 pt-8 md:pt-0">
-                <button 
-                  onClick={() => onUseStyle(selectedBook.style)} 
-                  className="w-full py-4 btn-candy text-white rounded-2xl font-bold shadow-xl hover:-translate-y-1 active:scale-95 transition-all flex items-center justify-center gap-2"
-                >
-                  <i className="fas fa-palette"></i> {t.useStyle}
-                </button>
-                <button 
-                  onClick={() => onUseIdea(selectedBook.idea)} 
-                  className="w-full py-4 bg-[var(--text-main)]/5 text-[var(--text-main)] rounded-2xl font-bold border border-[var(--border-color)] hover:bg-[#EA6F23]/5 hover:text-[#EA6F23] transition-all flex items-center justify-center gap-2"
-                >
-                  <i className="fas fa-pen-nib"></i> {t.useIdea}
-                </button>
-              </div>
             </div>
           </div>
         </div>
