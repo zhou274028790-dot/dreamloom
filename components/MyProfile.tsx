@@ -52,6 +52,8 @@ const MyProfile: React.FC<Props> = ({ user, setUser, handleLogout, lang, setLang
     zh: {
       wallet: '造梦钱包', orders: '我的订单', settings: '梦境设置',
       balance: '金豆余额', rechargeTitle: '获取更多金豆',
+      buyOnline: '前往官方商城购买',
+      orUseCode: '或使用激活码兑换',
       redeemPlaceholder: '请输入激活码 (如: DREAM-888)',
       redeemBtn: '立即兑换',
       goShop: '还没有码？前往【小红书店铺】购买激活卡片',
@@ -70,6 +72,8 @@ const MyProfile: React.FC<Props> = ({ user, setUser, handleLogout, lang, setLang
     en: {
       wallet: 'Wallet', orders: 'Orders', settings: 'Settings',
       balance: 'Beans', rechargeTitle: 'Get More Beans',
+      buyOnline: 'Buy Beans at Official Store',
+      orUseCode: 'OR USE ACTIVATION CODE',
       redeemPlaceholder: 'Enter activation code',
       redeemBtn: 'Redeem Now',
       goShop: 'No code? Visit our store to buy',
@@ -106,8 +110,9 @@ const MyProfile: React.FC<Props> = ({ user, setUser, handleLogout, lang, setLang
     }
   };
 
-  // 统一动态输入框样式：使用白色半透明，在深色背景下会自动变现为同色系的浅色
-  const inputClassName = `w-full px-8 py-5 rounded-[2rem] border border-[var(--border-color)] focus:ring-4 focus:ring-orange-500/20 outline-none font-bold shadow-inner transition-all bg-white/10 text-[var(--text-main)] placeholder:text-[var(--text-main)]/30`;
+  // 关键优化：不再使用 bg-white/10（这在深色模式下依然很亮），而是使用 bg-[var(--text-main)]/10
+  // 这样它会基于文字颜色（深色模式下为白，浅色模式下为深褐）自动调整透明度，呈现出同色系的“微亮/微暗”效果
+  const inputClassName = `w-full px-8 py-5 rounded-[2rem] border border-[var(--border-color)] focus:ring-4 focus:ring-orange-500/20 outline-none font-bold shadow-inner transition-all bg-[var(--text-main)]/10 text-[var(--text-main)] placeholder:text-[var(--text-main)]/30`;
 
   return (
     <div className="max-w-5xl mx-auto flex flex-col md:flex-row gap-8 animate-in relative">
@@ -176,26 +181,54 @@ const MyProfile: React.FC<Props> = ({ user, setUser, handleLogout, lang, setLang
                <div className="space-y-8 py-4">
                   <div className="space-y-2 text-center sm:text-left">
                     <h4 className="font-header font-bold text-xl" style={{ color: 'var(--text-main)' }}>{t.rechargeTitle}</h4>
-                    <p className="text-xs opacity-40 font-medium" style={{ color: 'var(--text-main)' }}>输入您购买的激活码解锁金豆。</p>
+                    <p className="text-xs opacity-40 font-medium" style={{ color: 'var(--text-main)' }}>在线购买或使用您在店铺获得的激活码。</p>
                   </div>
                   
                   <div className="space-y-6">
-                    <input 
-                      type="text" 
-                      value={redeemCodeInput}
-                      onChange={(e) => setRedeemCodeInput(e.target.value.toUpperCase())}
-                      placeholder={t.redeemPlaceholder}
-                      className={inputClassName}
-                      style={{ textAlign: 'center', letterSpacing: '0.1em' }}
-                    />
+                    {/* 新增：在线购买链接 */}
                     <button 
-                      onClick={handleRedeem}
-                      disabled={!redeemCodeInput.trim()}
-                      className="btn-candy w-full py-5 text-white rounded-[2rem] font-bold text-lg shadow-xl active:scale-95 transition-all disabled:opacity-40"
+                      onClick={() => window.open('https://www.xiaohongshu.com', '_blank')}
+                      className="w-full py-5 bg-orange-500 text-white rounded-[2rem] font-bold shadow-lg hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-3"
                     >
-                      {t.redeemBtn}
+                      <i className="fas fa-shopping-cart"></i>
+                      {t.buyOnline}
                     </button>
+
+                    <div className="flex items-center gap-4 px-2">
+                      <div className="flex-1 h-px bg-[var(--border-color)]"></div>
+                      <span className="text-[10px] font-black opacity-20 uppercase tracking-widest" style={{ color: 'var(--text-main)' }}>{t.orUseCode}</span>
+                      <div className="flex-1 h-px bg-[var(--border-color)]"></div>
+                    </div>
+
+                    <div className="space-y-4">
+                      <input 
+                        type="text" 
+                        value={redeemCodeInput}
+                        onChange={(e) => setRedeemCodeInput(e.target.value.toUpperCase())}
+                        placeholder={t.redeemPlaceholder}
+                        className={inputClassName}
+                        style={{ textAlign: 'center', letterSpacing: '0.1em' }}
+                      />
+                      <button 
+                        onClick={handleRedeem}
+                        disabled={!redeemCodeInput.trim()}
+                        className="w-full py-4 bg-[var(--text-main)] text-[var(--card-bg)] rounded-[1.5rem] font-bold text-sm shadow-md active:scale-95 transition-all disabled:opacity-40"
+                      >
+                        {t.redeemBtn}
+                      </button>
+                    </div>
+
                     {errorMsg && <p className="text-red-500 text-xs font-bold text-center">{errorMsg}</p>}
+                    
+                    <div className="text-center pt-2">
+                       <button 
+                        onClick={() => window.open('https://www.xiaohongshu.com', '_blank')}
+                        className="text-[10px] font-bold opacity-40 hover:opacity-100 transition-all border-b border-current"
+                        style={{ color: 'var(--text-main)' }}
+                       >
+                         {t.goShop} <i className="fas fa-external-link-alt ml-1"></i>
+                       </button>
+                    </div>
                   </div>
                </div>
             </div>
