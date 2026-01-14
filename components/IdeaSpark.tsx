@@ -90,19 +90,27 @@ const IdeaSpark: React.FC<Props> = ({ project, onNext, lang = 'zh', isDark = fal
     },
   ];
 
-  const [exampleIndices, setExampleIndices] = useState<Record<string, number>>({
-    [StoryTemplate.HERO_JOURNEY]: 0,
-    [StoryTemplate.SEARCH_AND_FIND]: 0,
-    [StoryTemplate.BEDTIME_HEALING]: 0,
-    [StoryTemplate.WACKY_ADVENTURE]: 0
-  });
-
   const handleTemplateClick = (tId: StoryTemplate) => {
+    if (template !== tId) {
+      setTemplate(tId);
+      // 首次点击分类，默认显示第一条例子
+      const templateObj = templates.find(t => t.id === tId);
+      if (templateObj) setIdea(templateObj.examples[0]);
+    }
+  };
+
+  const handleShuffle = (e: React.MouseEvent, tId: StoryTemplate) => {
+    e.stopPropagation(); // 阻止触发外层卡片的点击
     const templateObj = templates.find(t => t.id === tId);
     if (!templateObj) return;
-    const nextIdx = (exampleIndices[tId] + 1) % templateObj.examples.length;
-    setExampleIndices({ ...exampleIndices, [tId]: nextIdx });
-    setIdea(templateObj.examples[nextIdx]);
+    
+    // 随机抽取一个与当前不同的灵感
+    let randomIdx;
+    do {
+      randomIdx = Math.floor(Math.random() * templateObj.examples.length);
+    } while (templateObj.examples[randomIdx] === idea && templateObj.examples.length > 1);
+    
+    setIdea(templateObj.examples[randomIdx]);
     setTemplate(tId);
   };
 
@@ -158,22 +166,22 @@ const IdeaSpark: React.FC<Props> = ({ project, onNext, lang = 'zh', isDark = fal
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8 items-start w-full">
-        <div className="card-dynamic p-4 md:p-6 rounded-[24px] relative w-full">
+        <div className="card-dynamic p-4 md:p-6 rounded-[24px] relative w-full h-full flex flex-col">
           <label className="block text-sm font-bold opacity-80 mb-4 flex items-center justify-between">
             {lang === 'zh' ? '你的故事种子' : 'Your Story Seed'}
             <div className="flex gap-2">
                <button onClick={handleVoiceInput} className={`w-8 h-8 rounded-full flex items-center justify-center transition-all ${isRecording ? 'bg-red-500 text-white animate-pulse' : 'bg-[var(--text-main)]/10 text-[var(--text-main)] hover:text-[#EA6F23]'}`}>
-                  <i className="fas fa-microphone"></i>
+                  <i className="fas fa-microphone text-xs"></i>
                </button>
                <button onClick={() => imgInputRef.current?.click()} className="w-8 h-8 rounded-full bg-[var(--text-main)]/10 text-[var(--text-main)] flex items-center justify-center hover:text-[#EA6F23]">
-                  <i className="fas fa-image"></i>
+                  <i className="fas fa-image text-xs"></i>
                </button>
             </div>
           </label>
           
-          <div className="relative">
+          <div className="relative flex-1 flex flex-col">
             <textarea
-              className="w-full h-40 md:h-48 p-4 md:p-5 rounded-2xl bg-[var(--card-bg)] text-[var(--text-main)] placeholder:text-[var(--text-main)]/20 focus:ring-4 focus:ring-[#EA6F23]/10 outline-none resize-none transition-all font-medium text-base md:text-lg leading-relaxed shadow-inner border border-[var(--border-color)]"
+              className="w-full h-40 md:h-full min-h-[160px] p-4 md:p-5 rounded-2xl bg-[var(--card-bg)] text-[var(--text-main)] placeholder:text-[var(--text-main)]/20 focus:ring-4 focus:ring-[#EA6F23]/10 outline-none resize-none transition-all font-medium text-base md:text-lg leading-relaxed shadow-inner border border-[var(--border-color)]"
               placeholder={lang === 'zh' ? "写下一句话，或者上传一张图开启故事..." : "A sentence to start..."}
               value={idea}
               onChange={(e) => {
@@ -202,21 +210,30 @@ const IdeaSpark: React.FC<Props> = ({ project, onNext, lang = 'zh', isDark = fal
 
         <div className="grid grid-cols-1 gap-4 w-full">
           <p className="text-[10px] font-black opacity-30 uppercase tracking-widest ml-2 mb-1 flex items-center gap-2">
-            <i className="fas fa-shuffle text-xs"></i>
-            {lang === 'zh' ? '点击切换不同灵感' : 'CLICK TO SHUFFLE'}
+            <i className="fas fa-magic text-xs"></i>
+            {lang === 'zh' ? '选择一个故事模版' : 'CHOOSE A TEMPLATE'}
           </p>
           {templates.map((t) => (
-            <button key={t.id} onClick={() => handleTemplateClick(t.id)} className={`card-dynamic p-4 md:p-5 rounded-[24px] text-left transition-all relative overflow-hidden group w-full ${template === t.id ? 'ring-2 ring-[#EA6F23] bg-[#EA6F23]/5' : 'hover:border-[#EA6F23]/30'}`}>
+            <div key={t.id} onClick={() => handleTemplateClick(t.id)} className={`card-dynamic p-4 md:p-5 rounded-[24px] text-left transition-all relative overflow-hidden group cursor-pointer w-full border-2 ${template === t.id ? 'border-[#EA6F23] bg-[#EA6F23]/5' : 'border-[var(--border-color)] hover:border-[#EA6F23]/30'}`}>
               <div className="flex items-center gap-4 relative z-10">
-                <div className={`w-10 h-10 md:w-12 md:h-12 rounded-2xl flex items-center justify-center flex-shrink-0 ${template === t.id ? 'bg-[#EA6F23] text-white shadow-lg' : 'bg-[#EA6F23]/10 text-[#EA6F23]'}`}>
+                <div className={`w-10 h-10 md:w-12 md:h-12 rounded-2xl flex items-center justify-center flex-shrink-0 transition-all ${template === t.id ? 'bg-[#EA6F23] text-white shadow-lg' : 'bg-[#EA6F23]/10 text-[#EA6F23]'}`}>
                   <i className={`fas ${t.icon} text-base md:text-lg`}></i>
                 </div>
-                <div>
-                  <h4 className="font-bold text-sm md:text-base" style={{ color: 'var(--text-main)' }}>{t.id}</h4>
-                  <p className="text-xs opacity-50 font-medium line-clamp-2">{t.desc}</p>
+                <div className="flex-1 min-w-0 pr-12">
+                  <h4 className="font-bold text-sm md:text-base line-clamp-1" style={{ color: 'var(--text-main)' }}>{t.id}</h4>
+                  <p className="text-xs opacity-50 font-medium line-clamp-1">{t.desc}</p>
                 </div>
+                
+                {/* 骰子切换按钮 */}
+                <button 
+                  onClick={(e) => handleShuffle(e, t.id)}
+                  className={`absolute right-0 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full flex items-center justify-center transition-all ${template === t.id ? 'bg-[#EA6F23] text-white' : 'bg-[var(--text-main)]/5 text-[var(--text-main)]/40 hover:text-[#EA6F23] hover:bg-[#EA6F23]/10'} active:scale-90`}
+                  title={lang === 'zh' ? '换个灵感' : 'Shuffle Idea'}
+                >
+                  <i className="fas fa-dice text-lg"></i>
+                </button>
               </div>
-            </button>
+            </div>
           ))}
         </div>
       </div>
