@@ -51,9 +51,9 @@ const MyProfile: React.FC<Props> = ({ user, setUser, handleLogout, lang, setLang
   const t = {
     zh: {
       wallet: '造梦钱包', orders: '我的订单', settings: '梦境设置',
-      balance: '金豆余额', rechargeTitle: '获取更多金豆',
+      balance: '金豆余额', rechargeTitle: '金豆兑换',
       buyOnline: '前往官方商城购买',
-      orUseCode: '或使用激活码兑换',
+      orUseCode: '请输入激活码',
       redeemPlaceholder: '请输入激活码 (如: DREAM-888)',
       redeemBtn: '立即兑换',
       goShop: '还没有码？前往【小红书店铺】购买激活卡片',
@@ -71,9 +71,9 @@ const MyProfile: React.FC<Props> = ({ user, setUser, handleLogout, lang, setLang
     },
     en: {
       wallet: 'Wallet', orders: 'Orders', settings: 'Settings',
-      balance: 'Beans', rechargeTitle: 'Get More Beans',
-      buyOnline: 'Buy Beans at Official Store',
-      orUseCode: 'OR USE ACTIVATION CODE',
+      balance: 'Beans', rechargeTitle: 'Redeem Beans',
+      buyOnline: 'Buy at Official Store',
+      orUseCode: 'ENTER ACTIVATION CODE',
       redeemPlaceholder: 'Enter activation code',
       redeemBtn: 'Redeem Now',
       goShop: 'No code? Visit our store to buy',
@@ -110,8 +110,8 @@ const MyProfile: React.FC<Props> = ({ user, setUser, handleLogout, lang, setLang
     }
   };
 
-  // 视觉修正：输入框使用透明混合色，在深色背景下表现为同色系浅色
-  const inputClassName = `w-full px-8 py-5 rounded-[2rem] border border-[var(--border-color)] focus:ring-4 focus:ring-orange-500/20 outline-none font-bold shadow-inner transition-all bg-[var(--text-main)]/10 text-[var(--text-main)] placeholder:text-[var(--text-main)]/30`;
+  // 视觉修正：不再使用白块，使用更低透明度的叠加色，在暗色下会呈现比背景略浅的同色系效果
+  const inputClassName = `w-full px-8 py-5 rounded-[2rem] border border-[var(--text-main)]/10 focus:ring-4 focus:ring-orange-500/20 outline-none font-bold shadow-inner transition-all bg-[var(--text-main)]/5 text-[var(--text-main)] placeholder:text-[var(--text-main)]/20`;
 
   return (
     <div className="max-w-5xl mx-auto flex flex-col md:flex-row gap-8 animate-in relative">
@@ -180,24 +180,10 @@ const MyProfile: React.FC<Props> = ({ user, setUser, handleLogout, lang, setLang
                <div className="space-y-8 py-4">
                   <div className="space-y-2 text-center sm:text-left">
                     <h4 className="font-header font-bold text-xl" style={{ color: 'var(--text-main)' }}>{t.rechargeTitle}</h4>
-                    <p className="text-xs opacity-40 font-medium" style={{ color: 'var(--text-main)' }}>在线购买或使用激活码。如果没有码，可点击下方购买。</p>
+                    <p className="text-xs opacity-40 font-medium" style={{ color: 'var(--text-main)' }}>使用您在店铺获得的激活码兑换金豆。</p>
                   </div>
                   
                   <div className="space-y-6">
-                    <button 
-                      onClick={() => window.open('https://www.xiaohongshu.com', '_blank')}
-                      className="w-full py-5 bg-orange-500 text-white rounded-[2rem] font-bold shadow-lg hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-3"
-                    >
-                      <i className="fas fa-shopping-cart"></i>
-                      {t.buyOnline}
-                    </button>
-
-                    <div className="flex items-center gap-4 px-2">
-                      <div className="flex-1 h-px bg-[var(--border-color)]"></div>
-                      <span className="text-[10px] font-black opacity-20 uppercase tracking-widest" style={{ color: 'var(--text-main)' }}>{t.orUseCode}</span>
-                      <div className="flex-1 h-px bg-[var(--border-color)]"></div>
-                    </div>
-
                     <div className="space-y-4">
                       <input 
                         type="text" 
@@ -210,7 +196,7 @@ const MyProfile: React.FC<Props> = ({ user, setUser, handleLogout, lang, setLang
                       <button 
                         onClick={handleRedeem}
                         disabled={!redeemCodeInput.trim()}
-                        className="w-full py-4 bg-orange-500 text-white rounded-[1.5rem] font-bold text-sm shadow-md active:scale-95 transition-all disabled:opacity-40"
+                        className="w-full py-5 btn-candy text-white rounded-[1.5rem] font-bold text-lg shadow-md active:scale-95 transition-all disabled:opacity-40"
                       >
                         {t.redeemBtn}
                       </button>
@@ -218,10 +204,10 @@ const MyProfile: React.FC<Props> = ({ user, setUser, handleLogout, lang, setLang
 
                     {errorMsg && <p className="text-red-500 text-xs font-bold text-center">{errorMsg}</p>}
                     
-                    <div className="text-center pt-2">
+                    <div className="text-center pt-10">
                        <button 
                         onClick={() => window.open('https://www.xiaohongshu.com', '_blank')}
-                        className="text-[10px] font-bold opacity-40 hover:opacity-100 transition-all border-b border-current"
+                        className="text-[10px] font-bold opacity-30 hover:opacity-100 transition-all border-b border-current"
                         style={{ color: 'var(--text-main)' }}
                        >
                          {t.goShop} <i className="fas fa-external-link-alt ml-1"></i>

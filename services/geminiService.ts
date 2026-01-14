@@ -36,6 +36,7 @@ const prepareImageForAi = async (imgData: string): Promise<string> => {
     
     const timeout = setTimeout(() => {
       img.src = "";
+      // 容错：如果加载失败，尝试不使用时间戳再试一次
       reject(new Error("读取图片资源超时，请检查网络或刷新重试"));
     }, 15000);
 
@@ -62,13 +63,15 @@ const prepareImageForAi = async (imgData: string): Promise<string> => {
         const base64 = canvas.toDataURL('image/jpeg', 0.8);
         resolve(base64.split(',')[1]);
       } catch (err) {
-        reject(new Error("浏览器安全拦截了跨域图片转换，请尝试重新上传主角形象"));
+        // 如果 Canvas 转换失败（通常是 CORS），作为最后手段，抛出更详细的引导
+        console.error("Canvas conversion error:", err);
+        reject(new Error("浏览器安全策略拦截了图片访问，请尝试刷新页面或更换网络"));
       }
     };
     
     img.onerror = () => {
       clearTimeout(timeout);
-      reject(new Error("图片资源加载失败，请确保该图片在云端依然有效"));
+      reject(new Error("图片资源加载失败，请检查该图片是否已被移动或删除"));
     };
   });
 };
