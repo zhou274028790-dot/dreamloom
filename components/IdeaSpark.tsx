@@ -29,7 +29,12 @@ const IdeaSpark: React.FC<Props> = ({ project, onNext, lang = 'zh', isDark = fal
         '小象波波第一次独自去森林深处寻找甜甜泉。',
         '机器猫布鲁想要飞向蓝天，他用废旧零件做了一对翅膀。',
         '一只害羞的萤火虫在漆黑的暴雨夜指引迷路的小鹿回家。',
-        '勇敢的小骑士奥利弗出发去说服火龙不要再打喷嚏烧毁森林。'
+        '勇敢的小骑士奥利弗出发去说服火龙不要再打喷嚏烧毁森林。',
+        '好奇的小松鼠决定寻找彩虹的尽头，看看那里是不是真的有宝藏。',
+        '一只折叠的小纸船渴望见到大海，它开始了从花园水池到大洋的航行。',
+        '一只勤劳的小蜘蛛想要编织出一张能捕捉落星的神奇蛛网。',
+        '年幼的企鹅由于怕冷，独自踏上了寻找传说中“温暖之穴”的南极之旅。',
+        '一头住在地下的小鼹鼠，为了让家人看到月亮，开启了漫长的向上挖掘。'
       ] 
     },
     { 
@@ -38,7 +43,15 @@ const IdeaSpark: React.FC<Props> = ({ project, onNext, lang = 'zh', isDark = fal
       desc: lang === 'zh' ? '为小侦探准备的互动乐趣。' : 'Interactive fun for little detectives.', 
       examples: [
         '在热闹的动物森林里，狮子国王丢了他的皇冠，你能帮他在树丛里找到它吗？',
-        '调皮的彩色袜子在洗衣机里捉迷藏，快去阁楼和地毯下找找。'
+        '调皮的彩色袜子在洗衣机里捉迷藏，快去阁楼和地毯下找找。',
+        '月亮弄丢了开启梦境之门的银色钥匙，它可能掉在了玩具王国的某个角落。',
+        '巨人国的厨师弄丢了 7 颗魔法扣子，快帮他在巨大的蔬菜林里找找看。',
+        '小鸟皮皮的彩色羽毛被大风吹散到了游乐园，让我们一起去收集回来。',
+        '魔法师的猫咪学会了隐身，它正藏在漂浮图书馆的那些旧书堆里。',
+        '丰收节快到了，大家要在神奇的秋季森林里寻找那些藏起来的金橡果。',
+        '海龟爷爷在珊瑚礁派对上弄丢了他的老花镜，你能帮他在海草丛里找找吗？',
+        '园丁叔叔需要你的帮助，去温室花园里找出那 10 朵会唱歌的音乐花朵。',
+        '小侦探通过地上的隐形足迹，正在寻找通往秘密隐形城堡的唯一入口。'
       ] 
     },
     { 
@@ -47,7 +60,15 @@ const IdeaSpark: React.FC<Props> = ({ project, onNext, lang = 'zh', isDark = fal
       desc: lang === 'zh' ? '帮助孩子们进入梦乡的宁静童话。' : 'Calming tales to help kids drift away.', 
       examples: [
         '小星星累了，它慢慢划过夜空，亲吻每一朵云，对生灵说晚安。',
-        '森林里的风铃草在月光下轻轻摇晃，演奏着最温柔的摇篮曲。'
+        '森林里的风铃草在月光下轻轻摇晃，演奏着最温柔的摇篮曲。',
+        '一朵柔软的棉花糖云，在夜里变成了一个巨大的枕头，守护着整座城市的梦。',
+        '深海里的一头小鲸鱼，在安静的海底进行着一场缓慢且平稳的梦境巡航。',
+        '温柔的小雨滴轻轻落在花瓣上，向口渴的小花们诉说着远方的云朵故事。',
+        '一块神奇的小毛毯，每天晚上都会给那些孤独的玩具们一个温暖的拥抱。',
+        '月亮妈妈用银色的丝线织出了一座桥，让所有美好的梦都能顺利走过。',
+        '小猫头鹰学会了在森林的低语中闭上眼睛，它听到了微风说“嘘——”。',
+        '远方的灯塔有节奏地闪烁，像一颗平和的心跳，安抚着海面上归航的小船。',
+        '一只古老的小茶壶，正在为夜晚忙碌的星星们煮一壶充满“香甜梦境”的热茶。'
       ] 
     },
     { 
@@ -56,7 +77,15 @@ const IdeaSpark: React.FC<Props> = ({ project, onNext, lang = 'zh', isDark = fal
       desc: lang === 'zh' ? '充满搞怪情节和欢笑的故事。' : 'Silly situations and big laughs.', 
       examples: [
         '如果天空下的不是雨，而是五颜六色的冰淇淋球，世界会怎样？',
-        '一只学会了跳芭蕾舞的河马，决定去参加巴黎歌剧院的试镜。'
+        '一只学会了跳芭蕾舞的河马，决定去参加巴黎歌剧院的试镜。',
+        '如果有一天，你的影子决定背上小包，独自去环球旅行，你该怎么办？',
+        '冰箱里的蔬菜们在半夜成立了一支摇滚乐队，土豆主唱的声音特别响。',
+        '一个会飞的神奇浴缸，只有当你大声唱美声歌剧时它才会启动飞行。',
+        '在这个奇怪的小镇上，只要有人打喷嚏，所有人就会在接下来的 10 秒内失去重力。',
+        '长颈鹿波波不满足于吃叶子，他想成为一名世界级的领结设计师。',
+        '校车今天走了一条奇妙的捷径，它直接穿过了一个巨大的草莓生日蛋糕。',
+        '小狗发现了一个神秘的遥控器，按一下“暂停”，整个世界就会静止不动。',
+        '当月亮决定和地上的一个巨大煎饼调换位置时，动物们都乱了套。'
       ] 
     },
   ];
@@ -144,7 +173,7 @@ const IdeaSpark: React.FC<Props> = ({ project, onNext, lang = 'zh', isDark = fal
           
           <div className="relative">
             <textarea
-              className="w-full h-40 md:h-48 p-4 md:p-5 rounded-2xl bg-[var(--card-bg)] text-[var(--text-main)] placeholder:text-[var(--text-sub)] focus:ring-4 focus:ring-[#EA6F23]/10 outline-none resize-none transition-all font-medium text-base md:text-lg leading-relaxed shadow-inner border border-[var(--border-color)]"
+              className="w-full h-40 md:h-48 p-4 md:p-5 rounded-2xl bg-[var(--card-bg)] text-[var(--text-main)] placeholder:text-[var(--text-main)]/20 focus:ring-4 focus:ring-[#EA6F23]/10 outline-none resize-none transition-all font-medium text-base md:text-lg leading-relaxed shadow-inner border border-[var(--border-color)]"
               placeholder={lang === 'zh' ? "写下一句话，或者上传一张图开启故事..." : "A sentence to start..."}
               value={idea}
               onChange={(e) => {

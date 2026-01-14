@@ -110,8 +110,8 @@ const MyProfile: React.FC<Props> = ({ user, setUser, handleLogout, lang, setLang
     }
   };
 
-  // 视觉修正：不再使用白块，使用更低透明度的叠加色，在暗色下会呈现比背景略浅的同色系效果
-  const inputClassName = `w-full px-8 py-5 rounded-[2rem] border border-[var(--text-main)]/10 focus:ring-4 focus:ring-orange-500/20 outline-none font-bold shadow-inner transition-all bg-[var(--text-main)]/5 text-[var(--text-main)] placeholder:text-[var(--text-main)]/20`;
+  // UI 视觉重构：在深色模式下使用背景同色系的浅色，不再使用纯白块
+  const inputClassName = `w-full px-8 py-5 rounded-[2rem] border-2 border-[var(--text-main)]/10 focus:ring-4 focus:ring-orange-500/20 outline-none font-bold shadow-inner transition-all bg-[var(--text-main)]/5 text-[var(--text-main)] placeholder:text-[var(--text-main)]/30`;
 
   return (
     <div className="max-w-5xl mx-auto flex flex-col md:flex-row gap-8 animate-in relative">
