@@ -250,12 +250,17 @@ const DirectorMode: React.FC<Props> = ({ uid, project, onNext, onBack, userCoins
         </button>
       </div>
 
-      <div className="fixed bottom-0 left-0 right-0 bg-[var(--card-bg)]/80 backdrop-blur-3xl p-6 border-t border-[var(--border-color)] flex justify-between items-center max-w-7xl mx-auto rounded-t-[3rem] shadow-[0_-10px_40px_rgba(0,0,0,0.1)] z-50">
-        <button onClick={onBack} className="px-6 py-3 font-bold opacity-30 hover:opacity-100 transition-opacity text-sm" style={{ color: 'var(--text-main)' }}>返回</button>
-        <div className="flex items-center gap-2 px-6 py-2 bg-[#EA6F23]/10 rounded-full border border-[#EA6F23]/20">
-           <span className="text-[10px] font-black uppercase tracking-widest text-[#EA6F23]">{activeIndex + 1} / {pages.length} 页</span>
+      <div className="fixed bottom-0 left-0 right-0 bg-transparent p-6 flex justify-between items-center max-w-7xl mx-auto z-50 pointer-events-none">
+        <div className="pointer-events-auto">
+          <button onClick={onBack} className="px-6 py-3 font-bold opacity-30 hover:opacity-100 transition-opacity text-sm bg-[var(--card-bg)]/60 backdrop-blur-xl rounded-2xl border border-[var(--border-color)] shadow-lg" style={{ color: 'var(--text-main)' }}>返回</button>
         </div>
-        <button onClick={() => onNext({ currentStep: 'press' })} className="btn-candy px-10 py-3 text-white rounded-2xl font-bold shadow-xl transition-all active:scale-95 text-sm">前往印刷厂预览 <i className="fas fa-arrow-right ml-1"></i></button>
+        
+        <div className="pointer-events-auto flex gap-4">
+          <div className="flex items-center gap-2 px-6 py-3 bg-[var(--text-main)]/5 backdrop-blur-2xl rounded-2xl border border-[var(--border-color)] shadow-xl">
+             <span className="text-xs font-black text-[#EA6F23]">{activeIndex + 1} / {pages.length} 页</span>
+          </div>
+          <button onClick={() => onNext({ currentStep: 'press' })} className="btn-candy px-10 py-3 text-white rounded-2xl font-bold shadow-xl transition-all active:scale-95 text-sm pointer-events-auto">前往印刷厂预览 <i className="fas fa-arrow-right ml-1"></i></button>
+        </div>
       </div>
       
       {polishingIndex !== null && (

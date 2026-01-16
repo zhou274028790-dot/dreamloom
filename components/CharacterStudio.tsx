@@ -57,7 +57,6 @@ const CharacterStudio: React.FC<Props> = ({ uid, project, onNext, onBack, userCo
     if (!selectedImage) return;
     setFinalizingStep('upload');
     try {
-      // 路径优化：/users/{uid}/projects/{projectId}/char_{timestamp}.png
       const charUrl = selectedImage.startsWith('data:') 
         ? await uploadImageToCloud(uid, project.id, `char_${Date.now()}.png`, selectedImage) 
         : selectedImage;
@@ -126,13 +125,13 @@ const CharacterStudio: React.FC<Props> = ({ uid, project, onNext, onBack, userCo
             <div>
               <label className="text-[10px] font-black opacity-30 uppercase tracking-widest mb-2 block">主角形象描述</label>
               <textarea 
-                className="w-full h-24 p-4 rounded-2xl bg-[var(--text-main)]/5 border border-[var(--border-color)] focus:ring-4 outline-none text-sm font-semibold transition-all resize-none mb-4 text-[var(--text-main)] placeholder:text-[var(--text-main)]/20" 
-                placeholder="比如：一只戴着蓝色领结的白色小猫，大眼睛..." 
+                className="w-full h-32 p-4 rounded-2xl bg-[var(--text-main)]/5 border border-[var(--border-color)] focus:ring-4 outline-none text-sm font-semibold transition-all resize-none mb-4 text-[var(--text-main)] placeholder:text-[var(--text-main)]/20" 
+                placeholder="比如：一个长着透明翅膀的小女孩..." 
                 value={desc} 
                 onChange={(e) => setDesc(e.target.value)} 
               />
               
-              <div onClick={() => roleInputRef.current?.click()} className="w-full aspect-video rounded-2xl border-2 border-dashed border-[#EA6F23]/20 bg-[var(--card-bg)] flex items-center justify-center cursor-pointer overflow-hidden group">
+              <div onClick={() => roleInputRef.current?.click()} className="w-full aspect-video rounded-2xl border-2 border-dashed border-[#EA6F23]/20 bg-[var(--text-main)]/5 flex items-center justify-center cursor-pointer overflow-hidden group">
                 {roleRefImg ? <img src={roleRefImg} className="w-full h-full object-cover" /> : <div className="text-center"><i className="fas fa-user-plus text-2xl text-[#EA6F23]/20 mb-1"></i><p className="text-[10px] font-bold opacity-30">上传角色草图 (可选)</p></div>}
               </div>
               <input type="file" ref={roleInputRef} className="hidden" onChange={(e) => handleFileUpload(e, setRoleRefImg)} />
@@ -142,7 +141,7 @@ const CharacterStudio: React.FC<Props> = ({ uid, project, onNext, onBack, userCo
                <label className="text-[10px] font-black opacity-30 uppercase tracking-widest mb-2 block">选择画风特点</label>
                <div className="grid grid-cols-3 gap-2">
                 {styles.map(s => (
-                  <button key={s.id} onClick={() => setStyle(s.id)} className={`p-2 rounded-xl text-[10px] font-bold border transition-all ${style === s.id ? 'bg-[#EA6F23] text-white shadow-md border-transparent' : 'bg-[var(--card-bg)] border-[var(--border-color)] opacity-70 text-[var(--text-main)]'}`}>
+                  <button key={s.id} onClick={() => setStyle(s.id)} className={`p-2 rounded-xl text-[10px] font-bold border transition-all ${style === s.id ? 'bg-[#EA6F23] text-white shadow-md border-transparent' : 'bg-[var(--text-main)]/5 border-[var(--border-color)] opacity-70 text-[var(--text-main)]'}`}>
                     {s.icon} <br/> {s.label}
                   </button>
                 ))}
@@ -152,7 +151,7 @@ const CharacterStudio: React.FC<Props> = ({ uid, project, onNext, onBack, userCo
             {style === VisualStyle.CUSTOM && (
               <div className="animate-in fade-in space-y-2">
                 <label className="text-[10px] font-black opacity-30 uppercase tracking-widest block">画风参考图</label>
-                <div onClick={() => styleInputRef.current?.click()} className="w-full aspect-video rounded-2xl border-2 border-dashed border-[#EA6F23]/20 bg-[var(--card-bg)] flex items-center justify-center cursor-pointer overflow-hidden group">
+                <div onClick={() => styleInputRef.current?.click()} className="w-full aspect-video rounded-2xl border-2 border-dashed border-[#EA6F23]/20 bg-[var(--text-main)]/5 flex items-center justify-center cursor-pointer overflow-hidden group">
                   {styleRefImg ? <img src={styleRefImg} className="w-full h-full object-cover" /> : <div className="text-center"><i className="fas fa-palette text-2xl text-[#EA6F23]/20 mb-1"></i><p className="text-[10px] font-bold opacity-30">上传风格样本图片</p></div>}
                 </div>
                 <input type="file" ref={styleInputRef} className="hidden" onChange={(e) => handleFileUpload(e, setStyleRefImg)} />
@@ -173,7 +172,7 @@ const CharacterStudio: React.FC<Props> = ({ uid, project, onNext, onBack, userCo
                  <img src={selectedImage} className="w-full h-full object-contain rounded-2xl shadow-xl" />
               </div>
               {options.length > 1 && (
-                <div className="flex gap-4 p-4 mt-4 bg-black/5 w-full rounded-2xl border border-[var(--border-color)] overflow-x-auto no-scrollbar">
+                <div className="flex gap-4 p-4 mt-4 bg-[var(--text-main)]/5 w-full rounded-2xl border border-[var(--border-color)] overflow-x-auto no-scrollbar">
                   {options.map((img, i) => (
                     <img key={i} onClick={() => setSelectedImage(img)} src={img} className={`w-20 h-20 rounded-xl cursor-pointer border-4 transition-all flex-shrink-0 ${selectedImage === img ? 'border-[#EA6F23] scale-105' : 'border-transparent opacity-40'}`} />
                   ))}

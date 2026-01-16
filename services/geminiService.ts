@@ -16,27 +16,39 @@ const extractJson = (text: string) => {
 };
 
 /**
- * 终极鲁棒性的图片转换：专门解决 Firebase/云端图片跨域导致的 Canvas 报错
+ * 核心修复：降低尺寸上限 (768px) 并提高压缩率，解决 Token 超限 (32768) 报错
  */
 const prepareImageForAi = async (imgData: string): Promise<string> => {
   if (!imgData) throw new Error("无效的图片数据");
   
   if (imgData.startsWith('data:')) {
-    return imgData.split(',')[1];
+    // 即使是 dataURL，也重新绘制一遍进行缩放
+    const img = new Image();
+    img.src = imgData;
+    await new Promise((r) => (img.onload = r));
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    const MAX_SIZE = 768; // 降低尺寸，节省 Token
+    let w = img.width;
+    let h = img.height;
+    if (w > MAX_SIZE || h > MAX_SIZE) {
+      const ratio = Math.min(MAX_SIZE / w, MAX_SIZE / h);
+      w *= ratio; h *= ratio;
+    }
+    canvas.width = w;
+    canvas.height = h;
+    ctx?.drawImage(img, 0, 0, w, h);
+    return canvas.toDataURL('image/jpeg', 0.7).split(',')[1];
   }
 
   return new Promise((resolve, reject) => {
     const img = new Image();
-    // 关键：必须设置 crossOrigin，且必须在 src 赋值之前
     img.crossOrigin = "anonymous"; 
-    
-    // 添加时间戳防止 CDN 缓存导致的 CORS 策略失败
     const separator = imgData.includes('?') ? '&' : '?';
     img.src = `${imgData}${separator}t=${Date.now()}`;
     
     const timeout = setTimeout(() => {
       img.src = "";
-      // 容错：如果加载失败，尝试不使用时间戳再试一次
       reject(new Error("读取图片资源超时，请检查网络或刷新重试"));
     }, 15000);
 
@@ -47,8 +59,7 @@ const prepareImageForAi = async (imgData: string): Promise<string> => {
         const ctx = canvas.getContext('2d');
         if (!ctx) throw new Error("Canvas context failed");
         
-        // 缩放逻辑：防止 base64 过大导致 API 报错，同时保证清晰度
-        const MAX_SIZE = 1024;
+        const MAX_SIZE = 768; 
         let w = img.width;
         let h = img.height;
         if (w > MAX_SIZE || h > MAX_SIZE) {
@@ -60,10 +71,9 @@ const prepareImageForAi = async (imgData: string): Promise<string> => {
         canvas.height = h;
         ctx.drawImage(img, 0, 0, w, h);
         
-        const base64 = canvas.toDataURL('image/jpeg', 0.8);
+        const base64 = canvas.toDataURL('image/jpeg', 0.7);
         resolve(base64.split(',')[1]);
       } catch (err) {
-        // 如果 Canvas 转换失败（通常是 CORS），作为最后手段，抛出更详细的引导
         console.error("Canvas conversion error:", err);
         reject(new Error("浏览器安全策略拦截了图片访问，请尝试刷新页面或更换网络"));
       }
@@ -105,7 +115,8 @@ export const generateStoryOutline = async (idea: string, template: StoryTemplate
     const base64 = await prepareImageForAi(image);
     parts.push({ inlineData: { data: base64, mimeType: 'image/jpeg' } });
   }
-  parts.push({ text: `Create a 6-page children's story outline. Idea: "${idea}", Template: "${template}". JSON: {title, pages: [{text, visualPrompt}]}` });
+  // 要求生成 8 页基础结构
+  parts.push({ text: `Create an 8-page children's story outline. Idea: "${idea}", Template: "${template}". JSON: {title, pages: [{text, visualPrompt}]}` });
 
   const response = await ai.models.generateContent({
     model: 'gemini-3-flash-preview',
@@ -134,6 +145,10 @@ export const generateCharacterOptions = async (desc: string, style: VisualStyle,
   if (roleRefImg) {
     const base64 = await prepareImageForAi(roleRefImg);
     parts.push({ inlineData: { data: base64, mimeType: 'image/jpeg' } });
+  }
+  if (style === VisualStyle.CUSTOM && styleRefImg) {
+    const sBase64 = await prepareImageForAi(styleRefImg);
+    parts.push({ inlineData: { data: sBase64, mimeType: 'image/jpeg' } });
   }
   parts.push({ text: `Character Design Sheet for ${desc}. Style: ${stylePrompt}. White background.` });
 
