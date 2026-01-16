@@ -244,7 +244,7 @@ const DirectorMode: React.FC<Props> = ({ uid, project, onNext, onBack, userCoins
         <button 
           onClick={handleAddPages} 
           disabled={isExpanding}
-          className="px-10 py-3 bg-[var(--card-bg)] text-[#EA6F23] rounded-2xl font-bold text-xs border border-[#EA6F23]/20 hover:bg-[#EA6F23] hover:text-white transition-all flex items-center gap-3 shadow-sm active:scale-95"
+          className="px-10 py-3 bg-[var(--text-main)]/5 text-[#EA6F23] rounded-2xl font-bold text-xs border border-[#EA6F23]/20 hover:bg-[#EA6F23] hover:text-white transition-all flex items-center gap-3 shadow-sm active:scale-95"
         >
           <i className="fas fa-plus-circle"></i> 延续 4 页奇妙梦境 (10🌿 & +20¥)
         </button>

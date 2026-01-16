@@ -16,74 +16,48 @@ const extractJson = (text: string) => {
 };
 
 /**
- * 核心修复：降低尺寸上限 (768px) 并提高压缩率，解决 Token 超限 (32768) 报错
+ * 核心修复：极致图片压缩策略
+ * 1. 强制长边 512px
+ * 2. 质量 0.5
+ * 3. 递归压缩：若 Base64 长度超过 200,000 字符，则继续按 0.8 倍缩小直到达标
  */
 const prepareImageForAi = async (imgData: string): Promise<string> => {
   if (!imgData) throw new Error("无效的图片数据");
-  
-  if (imgData.startsWith('data:')) {
-    // 即使是 dataURL，也重新绘制一遍进行缩放
-    const img = new Image();
-    img.src = imgData;
-    await new Promise((r) => (img.onload = r));
+
+  const process = async (source: string | HTMLImageElement, currentMax: number): Promise<string> => {
+    const img = typeof source === 'string' ? new Image() : source;
+    if (typeof source === 'string') {
+      img.src = source;
+      await new Promise((r) => (img.onload = r));
+    }
+
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
-    const MAX_SIZE = 768; // 降低尺寸，节省 Token
     let w = img.width;
     let h = img.height;
-    if (w > MAX_SIZE || h > MAX_SIZE) {
-      const ratio = Math.min(MAX_SIZE / w, MAX_SIZE / h);
+    
+    if (w > currentMax || h > currentMax) {
+      const ratio = Math.min(currentMax / w, currentMax / h);
       w *= ratio; h *= ratio;
     }
+
     canvas.width = w;
     canvas.height = h;
     ctx?.drawImage(img, 0, 0, w, h);
-    return canvas.toDataURL('image/jpeg', 0.7).split(',')[1];
-  }
-
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.crossOrigin = "anonymous"; 
-    const separator = imgData.includes('?') ? '&' : '?';
-    img.src = `${imgData}${separator}t=${Date.now()}`;
     
-    const timeout = setTimeout(() => {
-      img.src = "";
-      reject(new Error("读取图片资源超时，请检查网络或刷新重试"));
-    }, 15000);
+    let quality = 0.5; // 用户要求的 0.5 质量
+    let result = canvas.toDataURL('image/jpeg', quality);
+    let base64 = result.split(',')[1];
 
-    img.onload = () => {
-      clearTimeout(timeout);
-      try {
-        const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d');
-        if (!ctx) throw new Error("Canvas context failed");
-        
-        const MAX_SIZE = 768; 
-        let w = img.width;
-        let h = img.height;
-        if (w > MAX_SIZE || h > MAX_SIZE) {
-          const ratio = Math.min(MAX_SIZE / w, MAX_SIZE / h);
-          w *= ratio; h *= ratio;
-        }
-
-        canvas.width = w;
-        canvas.height = h;
-        ctx.drawImage(img, 0, 0, w, h);
-        
-        const base64 = canvas.toDataURL('image/jpeg', 0.7);
-        resolve(base64.split(',')[1]);
-      } catch (err) {
-        console.error("Canvas conversion error:", err);
-        reject(new Error("浏览器安全策略拦截了图片访问，请尝试刷新页面或更换网络"));
-      }
-    };
+    // 如果依然超过 200,000 字符限制，递归进一步缩小
+    if (base64.length > 200000 && currentMax > 128) {
+      return process(img, Math.floor(currentMax * 0.8));
+    }
     
-    img.onerror = () => {
-      clearTimeout(timeout);
-      reject(new Error("图片资源加载失败，请检查该图片是否已被移动或删除"));
-    };
-  });
+    return base64;
+  };
+
+  return process(imgData, 512); // 从 512px 开始
 };
 
 const safetySettings = [
@@ -116,7 +90,7 @@ export const generateStoryOutline = async (idea: string, template: StoryTemplate
     parts.push({ inlineData: { data: base64, mimeType: 'image/jpeg' } });
   }
   // 要求生成 8 页基础结构
-  parts.push({ text: `Create an 8-page children's story outline. Idea: "${idea}", Template: "${template}". JSON: {title, pages: [{text, visualPrompt}]}` });
+  parts.push({ text: `Create an 8-page children's story outline. 1 Cover, 6 internal story scenes, 1 Closing scene. Total 8 pages. Idea: "${idea}", Template: "${template}". JSON: {title, pages: [{text, visualPrompt}]}` });
 
   const response = await ai.models.generateContent({
     model: 'gemini-3-flash-preview',
@@ -127,9 +101,9 @@ export const generateStoryOutline = async (idea: string, template: StoryTemplate
   const data = extractJson(response.text);
   return {
     title: data?.title || "My Story",
-    pages: (data?.pages || []).map((p: any, i: number) => ({
+    pages: (data?.pages || []).slice(0, 8).map((p: any, i: number) => ({
       id: generateId(),
-      type: 'story',
+      type: i === 0 ? 'cover' : i === 7 ? 'back' : 'story',
       pageNumber: i + 1,
       text: p.text,
       visualPrompt: p.visualPrompt,
