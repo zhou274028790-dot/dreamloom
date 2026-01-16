@@ -110,7 +110,8 @@ const MyProfile: React.FC<Props> = ({ user, setUser, handleLogout, lang, setLang
     }
   };
 
-  const inputClassName = `w-full px-8 py-5 rounded-[2rem] border-2 border-[var(--text-main)]/10 focus:border-orange-500/50 outline-none font-bold shadow-inner transition-all bg-[var(--text-main)]/5 text-[var(--text-main)] placeholder:text-[var(--text-main)]/20`;
+  // 核心优化：确保输入框在深色模式下使用加深的透明色，并强制清除默认背景
+  const inputClassName = `w-full px-8 py-5 rounded-[2.5rem] border-2 border-[var(--text-main)]/10 focus:border-[#EA6F23]/50 outline-none font-bold transition-all bg-[var(--text-main)]/[0.08] backdrop-blur-md text-[var(--text-main)] placeholder:text-[var(--text-main)]/30 shadow-inner`;
 
   return (
     <div className="max-w-5xl mx-auto flex flex-col md:flex-row gap-8 animate-in relative">
@@ -119,7 +120,7 @@ const MyProfile: React.FC<Props> = ({ user, setUser, handleLogout, lang, setLang
         <div className="fixed inset-0 bg-black/80 backdrop-blur-xl z-[200] flex items-center justify-center p-6 text-center animate-in fade-in">
           {paymentStatus === 'verifying' ? (
             <div className="space-y-6">
-               <div className="w-16 h-16 border-4 border-orange-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
+               <div className="w-16 h-16 border-4 border-[#EA6F23] border-t-transparent rounded-full animate-spin mx-auto"></div>
                <p className="font-bold text-white text-xl animate-pulse">{t.verifying}</p>
             </div>
           ) : (
@@ -195,7 +196,7 @@ const MyProfile: React.FC<Props> = ({ user, setUser, handleLogout, lang, setLang
                       <button 
                         onClick={handleRedeem}
                         disabled={!redeemCodeInput.trim()}
-                        className="w-full py-5 btn-candy text-white rounded-[1.5rem] font-bold text-lg shadow-md active:scale-95 transition-all disabled:opacity-40"
+                        className="w-full py-5 btn-candy text-white rounded-[2rem] font-bold text-lg shadow-md active:scale-95 transition-all disabled:opacity-40"
                       >
                         {t.redeemBtn}
                       </button>
@@ -221,7 +222,7 @@ const MyProfile: React.FC<Props> = ({ user, setUser, handleLogout, lang, setLang
             <div className="space-y-10 animate-in h-full flex flex-col">
                <div className="space-y-4">
                   <h4 className="text-sm font-black opacity-30 uppercase tracking-widest" style={{ color: 'var(--text-main)' }}>{t.editName}</h4>
-                  <div className="flex gap-3">
+                  <div className="flex flex-col sm:flex-row gap-3">
                      <input 
                       type="text" 
                       value={editingName} 
@@ -229,15 +230,15 @@ const MyProfile: React.FC<Props> = ({ user, setUser, handleLogout, lang, setLang
                       className={inputClassName}
                       style={{ padding: '1rem 1.5rem', borderRadius: '1.5rem' }}
                      />
-                     <button onClick={handleUpdateName} className="px-8 py-4 bg-orange-500 text-white rounded-2xl font-bold shadow-lg active:scale-95 transition-all">{t.save}</button>
+                     <button onClick={handleUpdateName} className="px-8 py-4 bg-[#EA6F23] text-white rounded-2xl font-bold shadow-lg active:scale-95 transition-all">{t.save}</button>
                   </div>
                </div>
 
                <div className="space-y-4">
                   <h4 className="text-sm font-black opacity-30 uppercase tracking-widest" style={{ color: 'var(--text-main)' }}>{t.switchLang}</h4>
                   <div className="flex gap-2">
-                     <button onClick={() => setLang('zh')} className={`flex-1 py-4 rounded-2xl font-bold border transition-all ${lang === 'zh' ? 'bg-orange-500 text-white border-transparent shadow-lg' : 'bg-[var(--text-main)]/5 border-[var(--border-color)] opacity-40 text-[var(--text-main)]'}`}>简体中文</button>
-                     <button onClick={() => setLang('en')} className={`flex-1 py-4 rounded-2xl font-bold border transition-all ${lang === 'en' ? 'bg-orange-500 text-white border-transparent shadow-lg' : 'bg-[var(--text-main)]/5 border-[var(--border-color)] opacity-40 text-[var(--text-main)]'}`}>English</button>
+                     <button onClick={() => setLang('zh')} className={`flex-1 py-4 rounded-2xl font-bold border transition-all ${lang === 'zh' ? 'bg-[#EA6F23] text-white border-transparent shadow-lg' : 'bg-[var(--text-main)]/5 border-[var(--border-color)] opacity-40 text-[var(--text-main)]'}`}>简体中文</button>
+                     <button onClick={() => setLang('en')} className={`flex-1 py-4 rounded-2xl font-bold border transition-all ${lang === 'en' ? 'bg-[#EA6F23] text-white border-transparent shadow-lg' : 'bg-[var(--text-main)]/5 border-[var(--border-color)] opacity-40 text-[var(--text-main)]'}`}>English</button>
                   </div>
                </div>
 
@@ -248,7 +249,7 @@ const MyProfile: React.FC<Props> = ({ user, setUser, handleLogout, lang, setLang
                        <button 
                         key={color.value}
                         onClick={() => setBgColor(color.value)}
-                        className={`group flex flex-col items-center gap-2 p-4 rounded-2xl border-2 transition-all ${bgColor === color.value ? 'border-orange-500 bg-orange-50/10' : 'border-[var(--border-color)] bg-white/5'}`}
+                        className={`group flex flex-col items-center gap-2 p-4 rounded-2xl border-2 transition-all ${bgColor === color.value ? 'border-[#EA6F23] bg-orange-50/10' : 'border-[var(--border-color)] bg-white/5'}`}
                        >
                          <div className="w-8 h-8 rounded-full border border-black/5 shadow-sm" style={{ backgroundColor: color.value }}></div>
                          <span className={`text-[10px] font-black ${bgColor === color.value ? 'text-orange-600' : 'opacity-40'}`} style={{ color: bgColor === color.value ? undefined : 'var(--text-main)' }}>{color.name}</span>
@@ -271,7 +272,7 @@ const MyProfile: React.FC<Props> = ({ user, setUser, handleLogout, lang, setLang
 };
 
 const SideBtn: React.FC<{ active: boolean, onClick: () => void, icon: string, label: string }> = ({ active, onClick, icon, label }) => (
-  <button onClick={onClick} className={`w-full flex items-center gap-4 px-6 py-4 rounded-2xl font-bold transition-all ${active ? 'bg-orange-500 text-white shadow-lg' : 'bg-transparent opacity-40 hover:opacity-100 hover:bg-[var(--text-main)]/5'}`} style={{ color: active ? undefined : 'var(--text-main)' }}>
+  <button onClick={onClick} className={`w-full flex items-center gap-4 px-6 py-4 rounded-2xl font-bold transition-all ${active ? 'bg-[#EA6F23] text-white shadow-lg' : 'bg-transparent opacity-40 hover:opacity-100 hover:bg-[var(--text-main)]/5'}`} style={{ color: active ? undefined : 'var(--text-main)' }}>
     <i className={`fas ${icon}`}></i>
     <span className="text-xs">{label}</span>
   </button>

@@ -30,6 +30,11 @@
             overflow-x: hidden;
             transition: background-color 0.5s ease, color 0.5s ease;
         }
+        /* 强制重置输入框底色，防止浏览器默认白底 */
+        input, textarea, select {
+            background-color: transparent !important;
+            color: inherit !important;
+        }
         .font-header { font-family: 'Fredoka', sans-serif; }
         .btn-candy {
             background: linear-gradient(135deg, #EA6F23, #F28C4F);
