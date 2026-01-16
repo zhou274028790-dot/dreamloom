@@ -256,6 +256,7 @@ const DirectorMode: React.FC<Props> = ({ uid, project, onNext, onBack, userCoins
         </div>
         
         <div className="pointer-events-auto flex gap-4">
+          {/* 非中心对称页码指示器 */}
           <div className="flex items-center gap-2 px-6 py-3 bg-[var(--text-main)]/5 backdrop-blur-2xl rounded-2xl border border-[var(--border-color)] shadow-xl">
              <span className="text-xs font-black text-[#EA6F23]">{activeIndex + 1} / {pages.length} 页</span>
           </div>

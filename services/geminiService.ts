@@ -16,48 +16,65 @@ const extractJson = (text: string) => {
 };
 
 /**
- * 核心修复：极致图片压缩策略
- * 1. 强制长边 512px
- * 2. 质量 0.5
- * 3. 递归压缩：若 Base64 长度超过 200,000 字符，则继续按 0.8 倍缩小直到达标
+ * 极致图片压缩与跨域修复策略
+ * 1. 显式开启 crossOrigin = "anonymous" 解决 "Tainted canvases" 报错
+ * 2. 强制长边 512px，质量 0.5，Token 友好
+ * 3. 递归缩放确保 Base64 长度 < 200k
  */
 const prepareImageForAi = async (imgData: string): Promise<string> => {
   if (!imgData) throw new Error("无效的图片数据");
 
-  const process = async (source: string | HTMLImageElement, currentMax: number): Promise<string> => {
-    const img = typeof source === 'string' ? new Image() : source;
-    if (typeof source === 'string') {
-      img.src = source;
-      await new Promise((r) => (img.onload = r));
-    }
+  const process = async (source: string, currentMax: number): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      
+      // 解决 Tainted Canvas 核心：必须在设置 src 前设置 crossOrigin
+      if (!source.startsWith('data:')) {
+        img.crossOrigin = "anonymous";
+        // 添加时间戳后缀绕过无 CORS 头的浏览器缓存
+        img.src = source + (source.includes('?') ? '&' : '?') + 't=' + Date.now();
+      } else {
+        img.src = source;
+      }
 
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
-    let w = img.width;
-    let h = img.height;
-    
-    if (w > currentMax || h > currentMax) {
-      const ratio = Math.min(currentMax / w, currentMax / h);
-      w *= ratio; h *= ratio;
-    }
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        let w = img.width;
+        let h = img.height;
+        
+        if (w > currentMax || h > currentMax) {
+          const ratio = Math.min(currentMax / w, currentMax / h);
+          w *= ratio; h *= ratio;
+        }
 
-    canvas.width = w;
-    canvas.height = h;
-    ctx?.drawImage(img, 0, 0, w, h);
-    
-    let quality = 0.5; // 用户要求的 0.5 质量
-    let result = canvas.toDataURL('image/jpeg', quality);
-    let base64 = result.split(',')[1];
+        canvas.width = w;
+        canvas.height = h;
+        ctx?.drawImage(img, 0, 0, w, h);
+        
+        try {
+          let quality = 0.5;
+          let result = canvas.toDataURL('image/jpeg', quality);
+          let base64 = result.split(',')[1];
 
-    // 如果依然超过 200,000 字符限制，递归进一步缩小
-    if (base64.length > 200000 && currentMax > 128) {
-      return process(img, Math.floor(currentMax * 0.8));
-    }
-    
-    return base64;
+          // 递归缩小
+          if (base64.length > 200000 && currentMax > 128) {
+            resolve(process(source, Math.floor(currentMax * 0.8)));
+          } else {
+            resolve(base64);
+          }
+        } catch (e) {
+          reject(new Error("图片安全校验失败（Tainted Canvas）。请确保存储服务器已配置 CORS。"));
+        }
+      };
+
+      img.onerror = () => {
+        reject(new Error("图片资源加载失败，请检查网络连接或资源链接是否有效。"));
+      };
+    });
   };
 
-  return process(imgData, 512); // 从 512px 开始
+  return process(imgData, 512);
 };
 
 const safetySettings = [
@@ -89,8 +106,14 @@ export const generateStoryOutline = async (idea: string, template: StoryTemplate
     const base64 = await prepareImageForAi(image);
     parts.push({ inlineData: { data: base64, mimeType: 'image/jpeg' } });
   }
-  // 要求生成 8 页基础结构
-  parts.push({ text: `Create an 8-page children's story outline. 1 Cover, 6 internal story scenes, 1 Closing scene. Total 8 pages. Idea: "${idea}", Template: "${template}". JSON: {title, pages: [{text, visualPrompt}]}` });
+  
+  // 强化提示词：必须生成 8 页
+  parts.push({ text: `Task: Generate a children's book outline with EXACTLY 8 pages. 
+  Page 1: Cover (Title Page). 
+  Pages 2-7: Internal story scenes. 
+  Page 8: Back cover (Closing scene).
+  Topic: "${idea}", Template: "${template}". 
+  JSON Output: {title: string, pages: [{text: string, visualPrompt: string}]}` });
 
   const response = await ai.models.generateContent({
     model: 'gemini-3-flash-preview',
@@ -99,9 +122,19 @@ export const generateStoryOutline = async (idea: string, template: StoryTemplate
   });
 
   const data = extractJson(response.text);
+  let rawPages = data?.pages || [];
+  
+  // 强制补齐或截断至 8 页
+  if (rawPages.length < 8) {
+    for (let i = rawPages.length; i < 8; i++) {
+      rawPages.push({ text: "...", visualPrompt: "A continuation of the magical journey." });
+    }
+  }
+  const finalPages = rawPages.slice(0, 8);
+
   return {
     title: data?.title || "My Story",
-    pages: (data?.pages || []).slice(0, 8).map((p: any, i: number) => ({
+    pages: finalPages.map((p: any, i: number) => ({
       id: generateId(),
       type: i === 0 ? 'cover' : i === 7 ? 'back' : 'story',
       pageNumber: i + 1,
