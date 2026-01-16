@@ -15,8 +15,17 @@ const ThePress: React.FC<Props> = ({ project, onBack, lang, isDark }) => {
   const [selectedPlan, setSelectedPlan] = useState('');
   
   const pages = Array.isArray(project.pages) ? project.pages : [];
-  // 如果项目中没有提取码（旧项目），显示默认占位
   const extractionCode = project.extractionCode || "DREAM-01"; 
+
+  // Pricing Logic: Base 8 pages. Every 4 extra pages = +20 RMB.
+  const extraPages = Math.max(0, pages.length - 8);
+  const extraSets = Math.floor(extraPages / 4);
+  const addedCost = extraSets * 20;
+
+  const baseStandard = 128;
+  const baseDeluxe = 198;
+  const finalStandard = baseStandard + addedCost;
+  const finalDeluxe = baseDeluxe + addedCost;
 
   const handleOrderClick = (planName: string) => {
     setSelectedPlan(planName);
@@ -31,8 +40,8 @@ const ThePress: React.FC<Props> = ({ project, onBack, lang, isDark }) => {
   const t = {
     zh: {
       digital: '标准数字版', digitalPrice: '39.9', digitalRights: '数字版权、云端永久储存（标准画质）',
-      basic: '精装实物版', basicPrice: '128', basicRights: '高清原图、蝴蝶装帧、实物顺丰到家',
-      gift: '至尊礼盒版', giftPrice: '198', giftRights: '高清原图、奢华礼盒、艺术纸张精印',
+      basic: '精装实物版', basicPrice: finalStandard.toString(), basicRights: '高清原图、蝴蝶装帧、实物顺丰到家',
+      gift: '至尊礼盒版', giftPrice: finalDeluxe.toString(), giftRights: '高清原图、奢华礼盒、艺术纸张精印',
       buy: '立即订购',
       viewHint: '点击两侧翻页',
       noContent: '还没有创作内容哦，快去开始吧！',
@@ -46,12 +55,14 @@ const ThePress: React.FC<Props> = ({ project, onBack, lang, isDark }) => {
       modalInstruction: '然后前往【DreamLoom 小红书店】下单，备注此码即可。',
       copySuccess: '点击复制',
       goShop: '前往小红书店',
-      close: '稍后再说'
+      close: '稍后再说',
+      pageCount: `总计 ${pages.length} 页`,
+      costDetail: addedCost > 0 ? `(含加页费用 +${addedCost}¥)` : '(标准页数)'
     },
     en: {
       digital: 'Standard Digital', digitalPrice: '39.9', digitalRights: 'Standard Quality, Cloud Storage',
-      basic: 'Hardcover Print', basicPrice: '128', basicRights: 'HD Original, Butterfly binding, Shipping',
-      gift: 'Deluxe Gift Box', giftPrice: '198', giftRights: 'HD Original, Premium Paper, Gift Box',
+      basic: 'Hardcover Print', basicPrice: finalStandard.toString(), basicRights: 'HD Original, Butterfly binding, Shipping',
+      gift: 'Deluxe Gift Box', giftPrice: finalDeluxe.toString(), giftRights: 'HD Original, Premium Paper, Gift Box',
       buy: 'Order Now',
       viewHint: 'Tap sides to flip',
       noContent: 'No content yet. Let\'s start!',
@@ -65,7 +76,9 @@ const ThePress: React.FC<Props> = ({ project, onBack, lang, isDark }) => {
       modalInstruction: 'Go to [DreamLoom Red Store] and leave this code in the notes.',
       copySuccess: 'Click to Copy',
       goShop: 'Visit Store',
-      close: 'Later'
+      close: 'Later',
+      pageCount: `${pages.length} Pages Total`,
+      costDetail: addedCost > 0 ? `(Inc. extra pages +${addedCost}¥)` : '(Standard)'
     }
   }[lang];
 
@@ -100,16 +113,19 @@ const ThePress: React.FC<Props> = ({ project, onBack, lang, isDark }) => {
             <p className="opacity-30 font-black uppercase tracking-[0.4em] text-[10px]" style={{ color: 'var(--text-main)' }}>{t.viewHint}</p>
             <span className="h-[2px] w-6 bg-[#EA6F23]/20 rounded-full"></span>
           </div>
-          <span className="text-[10px] bg-[#EA6F23]/10 text-[#EA6F23] px-3 py-1 rounded-full font-bold uppercase tracking-widest">
-            {t.previewMode}
-          </span>
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] bg-[#EA6F23]/10 text-[#EA6F23] px-3 py-1 rounded-full font-bold uppercase tracking-widest">
+                {t.previewMode}
+            </span>
+            <span className="text-[10px] bg-[var(--text-main)]/5 text-[var(--text-main)] px-3 py-1 rounded-full font-bold opacity-40">
+                {t.pageCount}
+            </span>
+          </div>
         </div>
       </div>
 
       <div className="flex flex-col items-center w-full">
-        {/* 将 aspect-square 修改为 aspect-[2/1] 以匹配导演模式 */}
-        <div className="w-full max-w-4xl card-dynamic shadow-2xl rounded-[2rem] md:rounded-[3rem] overflow-hidden flex flex-col relative">
-          
+        <div className="w-full max-w-4xl card-dynamic shadow-2xl rounded-[3rem] overflow-hidden flex flex-col relative border border-[var(--border-color)]">
           <div className="relative aspect-[2/1] w-full bg-[var(--text-main)]/5 flex items-center justify-center overflow-hidden">
             {currentPage?.imageUrl ? (
               <img 
@@ -129,12 +145,12 @@ const ThePress: React.FC<Props> = ({ project, onBack, lang, isDark }) => {
             <div className="absolute right-0 inset-y-0 w-1/4 cursor-e-resize z-20" onClick={() => setCurrentIndex(c => Math.min(pages.length - 1, c + 1))}></div>
             
             {currentIndex > 0 && (
-              <button onClick={() => setCurrentIndex(c => Math.max(0, c - 1))} className="absolute left-4 md:left-6 top-1/2 -translate-y-1/2 w-10 h-10 md:w-12 md:h-12 bg-[var(--card-bg)]/90 backdrop-blur rounded-full flex items-center justify-center text-[#EA6F23] shadow-xl z-30 border border-[#EA6F23]/10">
+              <button onClick={() => setCurrentIndex(c => Math.max(0, c - 1))} className="absolute left-4 md:left-6 top-1/2 -translate-y-1/2 w-10 h-10 md:w-12 md:h-12 bg-[var(--card-bg)]/90 backdrop-blur rounded-full flex items-center justify-center text-[#EA6F23] shadow-xl z-30 border border-[var(--border-color)]">
                 <i className="fas fa-chevron-left"></i>
               </button>
             )}
             {currentIndex < pages.length - 1 && (
-              <button onClick={() => setCurrentIndex(c => Math.min(pages.length - 1, c + 1))} className="absolute right-4 md:right-6 top-1/2 -translate-y-1/2 w-10 h-10 md:w-12 md:h-12 bg-[var(--card-bg)]/90 backdrop-blur rounded-full flex items-center justify-center text-[#EA6F23] shadow-xl z-30 border border-[#EA6F23]/10">
+              <button onClick={() => setCurrentIndex(c => Math.min(pages.length - 1, c + 1))} className="absolute right-4 md:right-6 top-1/2 -translate-y-1/2 w-10 h-10 md:w-12 md:h-12 bg-[var(--card-bg)]/90 backdrop-blur rounded-full flex items-center justify-center text-[#EA6F23] shadow-xl z-30 border border-[var(--border-color)]">
                 <i className="fas fa-chevron-right"></i>
               </button>
             )}
@@ -157,10 +173,10 @@ const ThePress: React.FC<Props> = ({ project, onBack, lang, isDark }) => {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8 px-4 w-full">
-        <PriceCard title={t.digital} price={t.digitalPrice} rights={t.digitalRights} btn={t.buy} primary={false} onClick={() => handleOrderClick(t.digital)} />
-        <PriceCard title={t.basic} price={t.basicPrice} rights={t.basicRights} btn={t.buy} primary={true} onClick={() => handleOrderClick(t.basic)} />
-        <PriceCard title={t.gift} price={t.giftPrice} rights={t.giftRights} btn={t.buy} primary={false} onClick={() => handleOrderClick(t.gift)} />
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8 px-4 w-full items-stretch">
+        <PriceCard title={t.digital} price={t.digitalPrice} rights={t.digitalRights} btn={t.buy} primary={false} onClick={() => handleOrderClick(t.digital)} sub={""} />
+        <PriceCard title={t.basic} price={t.basicPrice} rights={t.basicRights} btn={t.buy} primary={true} onClick={() => handleOrderClick(t.basic)} sub={t.costDetail} />
+        <PriceCard title={t.gift} price={t.giftPrice} rights={t.giftRights} btn={t.buy} primary={false} onClick={() => handleOrderClick(t.gift)} sub={t.costDetail} />
       </div>
 
       <div className="text-center pt-6 md:pt-10">
@@ -169,7 +185,6 @@ const ThePress: React.FC<Props> = ({ project, onBack, lang, isDark }) => {
         </button>
       </div>
 
-      {/* Order Dialog */}
       {showOrderModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 animate-in fade-in">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-md" onClick={() => setShowOrderModal(false)}></div>
@@ -178,13 +193,13 @@ const ThePress: React.FC<Props> = ({ project, onBack, lang, isDark }) => {
                 <i className="fas fa-check-circle"></i>
              </div>
              <div className="space-y-4">
-                <h3 className="text-3xl font-bold font-header" style={{ color: 'var(--text-main)' }}>您的作品《{project.title || "奇妙故事集"}》已归档！</h3>
+                <h3 className="text-2xl font-bold font-header" style={{ color: 'var(--text-main)' }}>您的作品已归档！</h3>
                 <div className="p-6 bg-[#EA6F23]/5 rounded-3xl border border-[#EA6F23]/20 space-y-3 group cursor-pointer active:scale-95 transition-all" onClick={handleCopyCode}>
                    <p className="text-xs font-black opacity-40 uppercase tracking-widest">{t.modalCodeLabel}</p>
                    <div className="text-4xl font-black text-[#EA6F23] tracking-tighter">{extractionCode}</div>
                    <p className="text-[10px] font-bold text-[#EA6F23] animate-pulse">( {t.copySuccess} )</p>
                 </div>
-                <p className="opacity-60 font-medium leading-relaxed px-4">{t.modalInstruction}</p>
+                <p className="opacity-60 font-medium leading-relaxed px-4 text-xs">{t.modalInstruction}</p>
              </div>
              <div className="flex flex-col gap-3">
                <button onClick={() => window.open('https://www.xiaohongshu.com', '_blank')} className="btn-candy w-full py-5 text-white rounded-[2rem] font-bold shadow-2xl text-lg">
@@ -201,14 +216,15 @@ const ThePress: React.FC<Props> = ({ project, onBack, lang, isDark }) => {
   );
 };
 
-const PriceCard: React.FC<{ title: string, price: string, rights: string, btn: string, primary: boolean, onClick: () => void }> = ({ title, price, rights, btn, primary, onClick }) => (
-  <div className={`p-6 md:p-8 rounded-[2rem] md:rounded-[3rem] flex flex-col items-center gap-4 md:gap-6 border transition-all hover:-translate-y-2 ${primary ? 'bg-[#EA6F23] text-white shadow-2xl border-orange-400 scale-105' : 'card-dynamic border-[var(--border-color)] shadow-xl'}`}>
+const PriceCard: React.FC<{ title: string, price: string, rights: string, btn: string, primary: boolean, onClick: () => void, sub: string }> = ({ title, price, rights, btn, primary, onClick, sub }) => (
+  <div className={`p-6 md:p-8 rounded-[2rem] md:rounded-[3rem] flex flex-col items-center gap-4 md:gap-6 border transition-all hover:-translate-y-2 ${primary ? 'bg-[#EA6F23] text-white shadow-2xl border-orange-400 scale-105' : 'bg-[var(--card-bg)] border-[var(--border-color)] shadow-xl'}`}>
      <h4 className={`text-lg font-bold font-header ${primary ? 'text-white' : 'text-[#EA6F23]'}`}>{title}</h4>
      <div className="text-center">
         <div className="text-3xl font-bold font-header" style={{ color: primary ? 'white' : 'var(--text-main)' }}>¥ {price}</div>
+        {sub && <div className={`text-[9px] font-black uppercase tracking-widest mt-1 ${primary ? 'text-white/60' : 'opacity-30'}`}>{sub}</div>}
      </div>
      <div className="w-full h-[1px] bg-current opacity-10"></div>
-     <p className={`text-xs text-center leading-relaxed h-auto md:h-10 flex items-center font-medium ${primary ? 'text-white/80' : 'opacity-50'}`} style={{ color: primary ? undefined : 'var(--text-main)' }}>{rights}</p>
+     <p className={`text-xs text-center leading-relaxed h-auto md:h-12 flex items-center font-medium ${primary ? 'text-white/80' : 'opacity-50'}`} style={{ color: primary ? undefined : 'var(--text-main)' }}>{rights}</p>
      <button onClick={onClick} className={`w-full py-3.5 rounded-2xl font-black shadow-md transition-all active:scale-95 ${primary ? 'bg-white text-[#EA6F23] hover:bg-orange-50' : 'bg-[#EA6F23] text-white hover:bg-[#EA6F23]/90'}`}>
        {btn}
      </button>

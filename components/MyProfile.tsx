@@ -110,7 +110,6 @@ const MyProfile: React.FC<Props> = ({ user, setUser, handleLogout, lang, setLang
     }
   };
 
-  // UI视觉重构：使用 bg-[var(--text-main)]/5 来获得与背景同色系的浅色层
   const inputClassName = `w-full px-8 py-5 rounded-[2rem] border-2 border-[var(--text-main)]/10 focus:border-orange-500/50 outline-none font-bold shadow-inner transition-all bg-[var(--text-main)]/5 text-[var(--text-main)] placeholder:text-[var(--text-main)]/20`;
 
   return (
