@@ -5,6 +5,7 @@ import { generateCharacterOptions, finalizeVisualScript } from '../services/gemi
 import { uploadImageToCloud } from '../services/dataService';
 
 interface Props {
+  uid: string;
   project: BookProject;
   onNext: (updates: Partial<BookProject>) => void;
   onBack: () => void;
@@ -14,7 +15,7 @@ interface Props {
   isDark?: boolean;
 }
 
-const CharacterStudio: React.FC<Props> = ({ project, onNext, onBack, userCoins, deductCoins, lang, isDark }) => {
+const CharacterStudio: React.FC<Props> = ({ uid, project, onNext, onBack, userCoins, deductCoins, lang, isDark }) => {
   const [desc, setDesc] = useState(project.characterDescription);
   const [style, setStyle] = useState<VisualStyle>(project.visualStyle);
   const [roleRefImg, setRoleRefImg] = useState<string | undefined>(project.characterReferenceImage);
@@ -56,8 +57,14 @@ const CharacterStudio: React.FC<Props> = ({ project, onNext, onBack, userCoins, 
     if (!selectedImage) return;
     setFinalizingStep('upload');
     try {
-      const charUrl = selectedImage.startsWith('data:') ? await uploadImageToCloud(`chars/${project.id}_${Date.now()}.png`, selectedImage) : selectedImage;
-      const sRefUrl = (styleRefImg && styleRefImg.startsWith('data:')) ? await uploadImageToCloud(`styles/${project.id}_${Date.now()}.png`, styleRefImg) : styleRefImg;
+      // 路径优化：/users/{uid}/projects/{projectId}/char_{timestamp}.png
+      const charUrl = selectedImage.startsWith('data:') 
+        ? await uploadImageToCloud(uid, project.id, `char_${Date.now()}.png`, selectedImage) 
+        : selectedImage;
+
+      const sRefUrl = (styleRefImg && styleRefImg.startsWith('data:')) 
+        ? await uploadImageToCloud(uid, project.id, `style_ref_${Date.now()}.png`, styleRefImg) 
+        : styleRefImg;
 
       setFinalizingStep('analyze');
       const { pages: fullPages, analyzedCharacterDesc, analyzedStyleDesc } = await finalizeVisualScript(
@@ -119,11 +126,10 @@ const CharacterStudio: React.FC<Props> = ({ project, onNext, onBack, userCoins, 
             <div>
               <label className="text-[10px] font-black opacity-30 uppercase tracking-widest mb-2 block">主角形象描述</label>
               <textarea 
-                className="w-full h-24 p-4 rounded-2xl bg-[var(--card-bg)] border border-[var(--border-color)] focus:ring-4 outline-none text-sm font-semibold transition-all resize-none mb-4" 
+                className="w-full h-24 p-4 rounded-2xl bg-[var(--text-main)]/5 border border-[var(--border-color)] focus:ring-4 outline-none text-sm font-semibold transition-all resize-none mb-4 text-[var(--text-main)] placeholder:text-[var(--text-main)]/20" 
                 placeholder="比如：一只戴着蓝色领结的白色小猫，大眼睛..." 
                 value={desc} 
                 onChange={(e) => setDesc(e.target.value)} 
-                style={{ color: 'var(--text-main)' }}
               />
               
               <div onClick={() => roleInputRef.current?.click()} className="w-full aspect-video rounded-2xl border-2 border-dashed border-[#EA6F23]/20 bg-[var(--card-bg)] flex items-center justify-center cursor-pointer overflow-hidden group">

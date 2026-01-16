@@ -5,6 +5,7 @@ import { generateSceneImage, editPageImage } from '../services/geminiService';
 import { uploadImageToCloud } from '../services/dataService';
 
 interface Props {
+  uid: string;
   project: BookProject;
   onNext: (updates: Partial<BookProject>) => void;
   onBack: () => void;
@@ -14,7 +15,7 @@ interface Props {
   isDark?: boolean;
 }
 
-const DirectorMode: React.FC<Props> = ({ project, onNext, onBack, userCoins, deductCoins, lang, isDark }) => {
+const DirectorMode: React.FC<Props> = ({ uid, project, onNext, onBack, userCoins, deductCoins, lang, isDark }) => {
   const [pages, setPages] = useState<StoryPage[]>(project.pages);
   const [activeIndex, setActiveIndex] = useState(0);
   const [polishingIndex, setPolishingIndex] = useState<number | null>(null);
@@ -68,7 +69,8 @@ const DirectorMode: React.FC<Props> = ({ project, onNext, onBack, userCoins, ded
         project.visualStyle,
         project.styleDescription
       );
-      const cloudUrl = await uploadImageToCloud(`pages/${project.id}_${index}_${Date.now()}.png`, base64Img);
+      // 路径优化：/users/{uid}/projects/{projectId}/page_{index}_{timestamp}.png
+      const cloudUrl = await uploadImageToCloud(uid, project.id, `page_${index}_${Date.now()}.png`, base64Img);
       const newPages = [...pages];
       newPages[index] = { ...newPages[index], imageUrl: cloudUrl, isGenerating: false };
       setPages(newPages);
@@ -126,7 +128,8 @@ const DirectorMode: React.FC<Props> = ({ project, onNext, onBack, userCoins, ded
         project.visualStyle,
         project.styleDescription
       );
-      const cloudUrl = await uploadImageToCloud(`pages/edit_${project.id}_${index}_${Date.now()}.png`, base64Img);
+      // 路径优化：/users/{uid}/projects/{projectId}/edit_page_{index}_{timestamp}.png
+      const cloudUrl = await uploadImageToCloud(uid, project.id, `edit_page_${index}_${Date.now()}.png`, base64Img);
       const newPages = [...pages];
       newPages[index] = { ...newPages[index], imageUrl: cloudUrl, isGenerating: false };
       setPages(newPages);

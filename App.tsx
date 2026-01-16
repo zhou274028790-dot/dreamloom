@@ -3,7 +3,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { onAuthStateChanged, signInAnonymously, signOut } from "firebase/auth";
 import { auth, db } from "./services/firebase";
 import { BookProject, StoryTemplate, VisualStyle, AppView, Language, User } from './types';
-import { getUserProfile, syncUserProfile, saveProjectToCloud, loadUserProjects, deleteProjectFromCloud } from './services/dataService';
+import { getUserProfile, syncUserProfile, saveProjectToCloud, loadUserProjects, deleteProjectFromCloud, findUserProfileByAccount } from './services/dataService';
 
 import IdeaSpark from './components/IdeaSpark';
 import CharacterStudio from './components/CharacterStudio';
@@ -164,16 +164,28 @@ const App: React.FC = () => {
 
   const handleLogin = async (username: string, method: string, isRegistering: boolean) => {
     try {
-      const cred = await signInAnonymously(auth);
-      setFirebaseUid(cred.user.uid);
+      // 1. 尝试查找已存在的账号数据 (email/username 匹配)
+      const existingProfile = await findUserProfileByAccount(username);
       
-      const profile = await getUserProfile(cred.user.uid);
-      if (profile) {
-        // 如果是已存在的用户，直接同步
-        setUser({ ...profile, isLoggedIn: true });
+      const cred = await signInAnonymously(auth);
+      const currentUid = cred.user.uid;
+      setFirebaseUid(currentUid);
+      
+      if (existingProfile) {
+        // 2. 如果账号已存在，将数据同步到当前的匿名 UID 下 (或者是复用该账号)
+        // 注意：这里我们简单地将现有数据关联到当前 Uid
+        const profileData = { ...existingProfile.data, isLoggedIn: true };
+        await syncUserProfile(currentUid, profileData);
+        setUser(profileData);
         setCurrentView('library');
+        
+        // 加载该账号的历史记录 (需注意历史记录是按 ownerId 存的)
+        // 如果是跨设备，可能需要一次性把旧 Uid 的项目 ownerId 改成新 Uid，或者历史记录查询改为查询 username
+        const projects = await loadUserProjects(existingProfile.uid);
+        // 这里如果是匿名 UID 不同，最好把 projects 也合并过来
+        setHistory(projects);
       } else {
-        // 如果是注册逻辑
+        // 3. 只有当账号完全不存在时，才创建新档案并赠送奖励
         const newUser = { 
           username, 
           email: username.includes('@') ? username : '',
@@ -181,13 +193,12 @@ const App: React.FC = () => {
           isFirstRecharge: true, 
           isLoggedIn: true 
         };
-        await syncUserProfile(cred.user.uid, newUser);
+        await syncUserProfile(currentUid, newUser);
         setUser(newUser);
         setShowReward(true);
         setCurrentView('library');
+        setHistory([]);
       }
-      const projects = await loadUserProjects(cred.user.uid);
-      setHistory(projects);
     } catch (e: any) {
       alert(`验证失败: ${e.message}`);
     }
@@ -270,8 +281,8 @@ const App: React.FC = () => {
            }} /> :
            <>
              {project.currentStep === 'idea' && <IdeaSpark project={project} onNext={updateProject} lang={lang} isDark={isDarkBg} />}
-             {project.currentStep === 'character' && <CharacterStudio project={project} onNext={updateProject} onBack={() => updateProject({ currentStep: 'idea' })} userCoins={user.coins} deductCoins={deductCoins} lang={lang} isDark={isDarkBg} />}
-             {project.currentStep === 'director' && <DirectorMode project={project} onNext={updateProject} onBack={() => updateProject({ currentStep: 'character' })} userCoins={user.coins} deductCoins={deductCoins} lang={lang} isDark={isDarkBg} />}
+             {project.currentStep === 'character' && <CharacterStudio uid={firebaseUid || ''} project={project} onNext={updateProject} onBack={() => updateProject({ currentStep: 'idea' })} userCoins={user.coins} deductCoins={deductCoins} lang={lang} isDark={isDarkBg} />}
+             {project.currentStep === 'director' && <DirectorMode uid={firebaseUid || ''} project={project} onNext={updateProject} onBack={() => updateProject({ currentStep: 'character' })} userCoins={user.coins} deductCoins={deductCoins} lang={lang} isDark={isDarkBg} />}
              {project.currentStep === 'press' && <ThePress project={project} onBack={() => updateProject({ currentStep: 'director' })} lang={lang} isDark={isDarkBg} />}
            </>
           }

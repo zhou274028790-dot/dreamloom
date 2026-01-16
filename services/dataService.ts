@@ -13,7 +13,7 @@ export const syncUserProfile = async (uid: string, userData: Partial<User>) => {
 };
 
 /**
- * Fetches user profile from Firestore
+ * Fetches user profile from Firestore by UID
  */
 export const getUserProfile = async (uid: string): Promise<User | null> => {
   const userRef = doc(db, "users", uid);
@@ -22,9 +22,26 @@ export const getUserProfile = async (uid: string): Promise<User | null> => {
 };
 
 /**
- * Uploads a Base64 image to Firebase Storage and returns the URL
+ * 查询指定账号是否存在
  */
-export const uploadImageToCloud = async (path: string, base64Data: string): Promise<string> => {
+export const findUserProfileByAccount = async (account: string): Promise<{ uid: string, data: User } | null> => {
+  const q = query(collection(db, "users"), where("username", "==", account));
+  const snap = await getDocs(q);
+  if (!snap.empty) {
+    return { 
+      uid: snap.docs[0].id, 
+      data: snap.docs[0].data() as User 
+    };
+  }
+  return null;
+};
+
+/**
+ * Uploads a Base64 image to Firebase Storage with optimized user/project path
+ * Structure: /users/{userId}/projects/{projectId}/{filename}
+ */
+export const uploadImageToCloud = async (uid: string, projectId: string, filename: string, base64Data: string): Promise<string> => {
+  const path = `users/${uid}/projects/${projectId}/${filename}`;
   const storageRef = ref(storage, path);
   const cleanData = base64Data.includes(',') ? base64Data.split(',')[1] : base64Data;
   await uploadString(storageRef, cleanData, 'base64');
