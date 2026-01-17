@@ -61,15 +61,13 @@ const BookLibrary: React.FC<Props> = ({ history, onSelect, onDelete, onNewProjec
               const firstPage = pages.length > 0 ? pages[0] : null;
               
               /**
-               * 核心修复：使用可选链访问属性，防止 TS 类型报错
-               * 1. 优先获取第一页的 imageUrl
-               * 2. 其次尝试第一页的 image 
-               * 3. 再次尝试项目根级的 coverUrl 或 cover_url
+               * 核心修复：优先使用 book.coverUrl (Firestore 根级字段)
+               * 这是我们在 DirectorMode 中显式同步的完整下载链接
                */
-              const coverImage = firstPage?.imageUrl || 
-                                 firstPage?.image || 
-                                 book.coverUrl || 
-                                 book.cover_url;
+              const coverImage = book.coverUrl || 
+                                 book.cover_url ||
+                                 firstPage?.imageUrl || 
+                                 firstPage?.image;
 
               const bookTitle = book.title || "未命名故事";
               const visualStyleStr = typeof book.visualStyle === 'string' ? book.visualStyle.split(' ')[0] : "艺术";

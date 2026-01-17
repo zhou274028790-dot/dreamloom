@@ -57,6 +57,7 @@ const CharacterStudio: React.FC<Props> = ({ uid, project, onNext, onBack, userCo
     if (!selectedImage) return;
     setFinalizingStep('upload');
     try {
+      // 1. 上传角色种子图并获取下载链接
       const charUrl = selectedImage.startsWith('data:') 
         ? await uploadImageToCloud(uid, project.id, `char_${Date.now()}.png`, selectedImage) 
         : selectedImage;
@@ -75,10 +76,13 @@ const CharacterStudio: React.FC<Props> = ({ uid, project, onNext, onBack, userCo
       );
       
       setFinalizingStep('sync');
+      
+      // 核心修复：将角色种子图设为初始 coverUrl
       onNext({ 
         characterDescription: analyzedCharacterDesc, 
         characterReferenceImage: roleRefImg,
         characterSeedImage: charUrl, 
+        coverUrl: charUrl, // 初始封面
         visualStyle: style, 
         styleReferenceImage: sRefUrl,
         styleDescription: analyzedStyleDesc,

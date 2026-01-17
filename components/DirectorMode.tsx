@@ -69,11 +69,22 @@ const DirectorMode: React.FC<Props> = ({ uid, project, onNext, onBack, userCoins
         project.visualStyle,
         project.styleDescription
       );
+      
+      // 1. 上传并获取下载 URL
       const cloudUrl = await uploadImageToCloud(uid, project.id, `page_${index}_${Date.now()}.png`, base64Img);
+      
+      // 2. 更新本地状态
       const newPages = [...pages];
       newPages[index] = { ...newPages[index], imageUrl: cloudUrl, isGenerating: false };
       setPages(newPages);
-      onNext({ pages: newPages });
+
+      // 3. 核心修复：如果是第一页，同步更新项目的 coverUrl
+      const updates: Partial<BookProject> = { pages: newPages };
+      if (index === 0) {
+        updates.coverUrl = cloudUrl;
+      }
+      onNext(updates);
+      
     } catch (err: any) {
       console.error("Redraw Error:", err);
       alert(lang === 'zh' ? `画面编织失败: ${err.message || '网络连接超时，请重试'}` : `Failed to generate image: ${err.message}`);
@@ -127,11 +138,20 @@ const DirectorMode: React.FC<Props> = ({ uid, project, onNext, onBack, userCoins
         project.visualStyle,
         project.styleDescription
       );
+      
       const cloudUrl = await uploadImageToCloud(uid, project.id, `edit_page_${index}_${Date.now()}.png`, base64Img);
+      
       const newPages = [...pages];
       newPages[index] = { ...newPages[index], imageUrl: cloudUrl, isGenerating: false };
       setPages(newPages);
-      onNext({ pages: newPages });
+      
+      // 核心修复：如果是第一页，同步更新项目的 coverUrl
+      const updates: Partial<BookProject> = { pages: newPages };
+      if (index === 0) {
+        updates.coverUrl = cloudUrl;
+      }
+      onNext(updates);
+
     } catch (err: any) {
       console.error("Polish Error:", err);
       alert(lang === 'zh' ? `微调失败: ${err.message}` : `Polish failed: ${err.message}`);
@@ -256,7 +276,6 @@ const DirectorMode: React.FC<Props> = ({ uid, project, onNext, onBack, userCoins
         </div>
         
         <div className="pointer-events-auto flex gap-4">
-          {/* 非中心对称页码指示器 */}
           <div className="flex items-center gap-2 px-6 py-3 bg-[var(--text-main)]/5 backdrop-blur-2xl rounded-2xl border border-[var(--border-color)] shadow-xl">
              <span className="text-xs font-black text-[#EA6F23]">{activeIndex + 1} / {pages.length} 页</span>
           </div>
