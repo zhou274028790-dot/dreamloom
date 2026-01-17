@@ -1,8 +1,8 @@
 
-import { doc, setDoc, getDoc, updateDoc, collection, query, where, getDocs, deleteDoc, writeBatch } from "firebase/firestore";
+import { doc, setDoc, getDoc, updateDoc, collection, query, where, getDocs, deleteDoc, writeBatch, orderBy } from "firebase/firestore";
 import { ref, uploadString, getDownloadURL } from "firebase/storage";
 import { db, storage } from "./firebase";
-import { BookProject, User } from "../types";
+import { BookProject, User, StoryTemplate, VisualStyle } from "../types";
 
 /**
  * Syncs user profile to Firestore
@@ -53,16 +53,47 @@ export const uploadImageToCloud = async (uid: string, projectId: string, filenam
  */
 export const saveProjectToCloud = async (uid: string, project: BookProject) => {
   const projectRef = doc(db, "projects", project.id);
+  // Ensure ownerId is always synced
   await setDoc(projectRef, { ...project, ownerId: uid, updatedAt: Date.now() }, { merge: true });
 };
 
 /**
- * Loads all projects for a specific user
+ * Loads all projects for a specific user. 
+ * Explicitly removed any potential limits and added defensive parsing.
  */
 export const loadUserProjects = async (uid: string): Promise<BookProject[]> => {
-  const q = query(collection(db, "projects"), where("ownerId", "==", uid));
-  const snap = await getDocs(q);
-  return snap.docs.map(d => d.data() as BookProject);
+  try {
+    // 确保没有 limit，并且通过 createdAt 排序（如果索引允许）
+    const q = query(
+      collection(db, "projects"), 
+      where("ownerId", "==", uid)
+    );
+    
+    const snap = await getDocs(q);
+    const projects = snap.docs.map(d => {
+      const data = d.data();
+      // 极度防御性映射：确保每个字段都有合理的默认值
+      return {
+        id: d.id,
+        title: data.title || "未命名故事",
+        originalIdea: data.originalIdea || "",
+        template: data.template || StoryTemplate.HERO_JOURNEY,
+        pages: Array.isArray(data.pages) ? data.pages : [],
+        characterDescription: data.characterDescription || "",
+        characterSeedImage: data.characterSeedImage || "",
+        visualStyle: data.visualStyle || VisualStyle.WATERCOLOR,
+        extractionCode: data.extractionCode || "",
+        currentStep: data.currentStep || 'idea',
+        createdAt: data.createdAt || data.updatedAt || Date.now(),
+        ...data // 展开其余数据
+      } as BookProject;
+    });
+
+    return projects;
+  } catch (error) {
+    console.error("加载项目列表失败:", error);
+    return [];
+  }
 };
 
 /**

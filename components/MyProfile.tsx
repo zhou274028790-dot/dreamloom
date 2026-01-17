@@ -110,8 +110,8 @@ const MyProfile: React.FC<Props> = ({ user, setUser, handleLogout, lang, setLang
     }
   };
 
-  // 核心优化：确保输入框在深色模式下使用加深的透明色，并强制清除默认背景
-  const inputClassName = `w-full px-8 py-5 rounded-[2.5rem] border-2 border-[var(--text-main)]/10 focus:border-[#EA6F23]/50 outline-none font-bold transition-all bg-[var(--text-main)]/[0.08] backdrop-blur-md text-[var(--text-main)] placeholder:text-[var(--text-main)]/30 shadow-inner`;
+  // 极度优化的输入框样式：使用主题感知的半透明背景，并强制覆盖浏览器默认白底
+  const inputClassName = `w-full px-8 py-5 rounded-[2.5rem] border-2 border-[var(--text-main)]/10 focus:border-[#EA6F23]/50 outline-none font-bold transition-all bg-[var(--text-main)]/5 backdrop-blur-md text-[var(--text-main)] placeholder:text-[var(--text-main)]/30 shadow-inner appearance-none`;
 
   return (
     <div className="max-w-5xl mx-auto flex flex-col md:flex-row gap-8 animate-in relative">

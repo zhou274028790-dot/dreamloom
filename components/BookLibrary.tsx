@@ -11,7 +11,10 @@ interface Props {
 
 const BookLibrary: React.FC<Props> = ({ history, onSelect, onDelete, onNewProject }) => {
   
-  if (history.length === 0) {
+  // 更加宽松的过滤逻辑，只要有 ID 哪怕没标题也显示
+  const validHistory = (history || []).filter(book => book && book.id);
+
+  if (validHistory.length === 0) {
     return (
       <div className="max-w-4xl mx-auto py-20 text-center space-y-8 animate-in fade-in zoom-in-95 duration-700">
         <div className="w-40 h-40 bg-[#EA6F23]/10 rounded-full flex items-center justify-center mx-auto text-[#EA6F23]/40 text-6xl">
@@ -37,7 +40,7 @@ const BookLibrary: React.FC<Props> = ({ history, onSelect, onDelete, onNewProjec
       <div className="flex justify-between items-center px-2">
         <div>
           <h2 className="text-3xl md:text-4xl font-header font-bold" style={{ color: 'var(--text-main)' }}>我的梦想图书馆</h2>
-          <p className="opacity-50 font-medium text-sm">这里收藏了你所有的独特冒险。</p>
+          <p className="opacity-50 font-medium text-sm">这里收藏了你所有的独特冒险（已发现 {validHistory.length} 本）。</p>
         </div>
         <button
           onClick={onNewProject}
@@ -49,86 +52,99 @@ const BookLibrary: React.FC<Props> = ({ history, onSelect, onDelete, onNewProjec
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 pb-20">
-        {history.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)).map((book) => {
-          return (
-            <div 
-              key={book.id} 
-              className="card-dynamic rounded-[3rem] overflow-hidden group hover:-translate-y-2 flex flex-col transition-all duration-300"
-            >
-              {/* 封面区域：强制 1:1 比例 */}
-              <div 
-                className="relative aspect-square bg-[#F5F1E9] cursor-pointer overflow-hidden"
-                onClick={() => onSelect({ ...book, currentStep: 'press' })}
-              >
-                {book.pages[0]?.imageUrl ? (
-                  <img 
-                    src={book.pages[0].imageUrl} 
-                    className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" 
-                    alt={book.title} 
-                  />
-                ) : (
-                  <div className="w-full h-full flex flex-col items-center justify-center p-8 bg-gradient-to-br from-[#F5F1E9] to-white/20">
-                     <div className="w-20 h-20 bg-white/80 rounded-full flex items-center justify-center shadow-sm mb-4">
-                        <i className="fas fa-star text-[#EA6F23] text-3xl animate-pulse"></i>
-                     </div>
-                     <p className="text-[#EA6F23] font-bold text-sm tracking-widest opacity-40 text-center px-4">正在编织梦境...</p>
-                  </div>
-                )}
-                
-                {/* 删除按钮 - 已移至封面右上角 */}
-                <button 
-                   onClick={(e) => { e.stopPropagation(); if(confirm("确定要删除这本绘本吗？")) onDelete(book.id); }}
-                   className="absolute top-5 right-5 w-10 h-10 bg-white/20 backdrop-blur-md text-white/60 rounded-full flex items-center justify-center shadow-xl border border-white/10 z-20 hover:bg-red-500 hover:text-white hover:scale-110 transition-all active:scale-90"
-                   title="删除作品"
+        {validHistory
+          .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))
+          .map((book) => {
+            try {
+              // 进一步的防御性解析
+              const pages = Array.isArray(book.pages) ? book.pages : [];
+              const coverImageUrl = pages.length > 0 ? pages[0]?.imageUrl : null;
+              const bookTitle = book.title || "未命名故事";
+              const visualStyleStr = typeof book.visualStyle === 'string' ? book.visualStyle.split(' ')[0] : "艺术";
+
+              return (
+                <div 
+                  key={book.id} 
+                  className="card-dynamic rounded-[3rem] overflow-hidden group hover:-translate-y-2 flex flex-col transition-all duration-300"
                 >
-                   <i className="fas fa-trash-alt text-sm"></i>
-                </button>
+                  {/* 封面区域：强制 1:1 比例 */}
+                  <div 
+                    className="relative aspect-square bg-[#F5F1E9] cursor-pointer overflow-hidden"
+                    onClick={() => onSelect({ ...book, currentStep: 'press' })}
+                  >
+                    {coverImageUrl ? (
+                      <img 
+                        src={coverImageUrl} 
+                        className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" 
+                        alt={bookTitle} 
+                        onError={(e) => {
+                          // 如果图片加载失败，显示占位符
+                          (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1544947950-fa07a98d237f?auto=format&fit=crop&w=400&q=80";
+                        }}
+                      />
+                    ) : (
+                      <div className="w-full h-full flex flex-col items-center justify-center p-8 bg-gradient-to-br from-[#F5F1E9] to-white/20">
+                        <div className="w-20 h-20 bg-white/80 rounded-full flex items-center justify-center shadow-sm mb-4">
+                            <i className="fas fa-star text-[#EA6F23] text-3xl animate-pulse"></i>
+                        </div>
+                        <p className="text-[#EA6F23] font-bold text-sm tracking-widest opacity-40 text-center px-4">正在编织梦境...</p>
+                      </div>
+                    )}
+                    
+                    {/* 删除按钮 */}
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); if(confirm("确定要删除这本绘本吗？")) onDelete(book.id); }}
+                      className="absolute top-5 right-5 w-10 h-10 bg-white/20 backdrop-blur-md text-white/60 rounded-full flex items-center justify-center shadow-xl border border-white/10 z-20 hover:bg-red-500 hover:text-white hover:scale-110 transition-all active:scale-90"
+                      title="删除作品"
+                    >
+                      <i className="fas fa-trash-alt text-sm"></i>
+                    </button>
 
-                <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
-              </div>
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                  </div>
 
-              {/* 信息与操作区 */}
-              <div className="p-8 space-y-6 bg-white">
-                <div className="space-y-1">
-                  <h3 className="text-2xl font-bold font-header line-clamp-1" style={{ color: 'var(--text-main)' }}>{book.title || "未命名故事"}</h3>
-                  <div className="flex items-center gap-2 text-xs font-bold text-[#EA6F23] uppercase tracking-widest opacity-60">
-                    <i className="fas fa-magic text-[10px]"></i>
-                    {book.visualStyle?.split(' ')[0] || "艺术"} • {book.pages?.length || 0} 页
+                  {/* 信息与操作区 */}
+                  <div className="p-8 space-y-6 bg-[var(--card-bg)]">
+                    <div className="space-y-1">
+                      <h3 className="text-2xl font-bold font-header line-clamp-1" style={{ color: 'var(--text-main)' }}>{bookTitle}</h3>
+                      <div className="flex items-center gap-2 text-xs font-bold text-[#EA6F23] uppercase tracking-widest opacity-60">
+                        <i className="fas fa-magic text-[10px]"></i>
+                        {visualStyleStr} • {pages.length} 页
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-3">
+                      <button 
+                        onClick={() => onSelect({ ...book, currentStep: 'director' })}
+                        className="py-4 bg-[var(--text-main)]/5 text-[var(--text-sub)] rounded-2xl hover:bg-[var(--text-main)]/10 transition-all flex flex-col items-center justify-center gap-1.5 border border-[var(--border-color)]"
+                      >
+                        <i className="fas fa-pen text-xs"></i>
+                        <span className="text-[10px] font-black tracking-widest uppercase">编辑</span>
+                      </button>
+
+                      <button 
+                        onClick={() => onSelect({ ...book, currentStep: 'press' })}
+                        className="py-4 bg-[#EA6F23] text-white rounded-2xl shadow-lg hover:bg-[#EA6F23]/90 hover:-translate-y-0.5 transition-all flex flex-col items-center justify-center gap-1.5"
+                      >
+                        <i className="fas fa-eye text-xs"></i>
+                        <span className="text-[10px] font-black tracking-widest uppercase">阅读</span>
+                      </button>
+
+                      <button 
+                        onClick={() => onSelect({ ...book, currentStep: 'press' })}
+                        className="py-4 bg-yellow-400 text-yellow-900 rounded-2xl shadow-xl border-2 border-yellow-200 hover:bg-yellow-300 hover:-translate-y-0.5 transition-all flex flex-col items-center justify-center gap-1.5"
+                      >
+                        <i className="fas fa-gift text-xs"></i>
+                        <span className="text-[10px] font-black tracking-widest uppercase">订购</span>
+                      </button>
+                    </div>
                   </div>
                 </div>
-
-                {/* 底部按钮重构：编辑 / 阅读 / 订购 三足鼎立 */}
-                <div className="grid grid-cols-3 gap-3">
-                  {/* 编辑 */}
-                  <button 
-                    onClick={() => onSelect({ ...book, currentStep: 'director' })}
-                    className="py-4 bg-gray-50 text-gray-400 rounded-2xl hover:bg-gray-100 transition-all flex flex-col items-center justify-center gap-1.5 border border-gray-100"
-                  >
-                    <i className="fas fa-pen text-xs"></i>
-                    <span className="text-[10px] font-black tracking-widest uppercase">编辑</span>
-                  </button>
-
-                  {/* 阅读 */}
-                  <button 
-                    onClick={() => onSelect({ ...book, currentStep: 'press' })}
-                    className="py-4 bg-[#EA6F23] text-white rounded-2xl shadow-lg hover:bg-[#EA6F23]/90 hover:-translate-y-0.5 transition-all flex flex-col items-center justify-center gap-1.5"
-                  >
-                    <i className="fas fa-eye text-xs"></i>
-                    <span className="text-[10px] font-black tracking-widest uppercase">阅读</span>
-                  </button>
-
-                  {/* 订购 */}
-                  <button 
-                    onClick={() => onSelect({ ...book, currentStep: 'press' })}
-                    className="py-4 bg-yellow-400 text-yellow-900 rounded-2xl shadow-xl border-2 border-yellow-200 hover:bg-yellow-300 hover:-translate-y-0.5 transition-all flex flex-col items-center justify-center gap-1.5"
-                  >
-                    <i className="fas fa-gift text-xs"></i>
-                    <span className="text-[10px] font-black tracking-widest uppercase">订购</span>
-                  </button>
-                </div>
-              </div>
-            </div>
-          );
+              );
+            } catch (err) {
+              console.error("渲染单本绘本出错:", err, book);
+              return null; // 即使某一本损坏，也不影响整个列表
+            }
         })}
       </div>
     </div>
