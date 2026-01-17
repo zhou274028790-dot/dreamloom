@@ -1,9 +1,9 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { onAuthStateChanged, signInAnonymously, signOut } from "firebase/auth";
-import { auth, db } from "./services/firebase";
+import { onAuthStateChanged, signOut } from "firebase/auth";
+import { auth } from "./services/firebase";
 import { BookProject, StoryTemplate, VisualStyle, AppView, Language, User } from './types';
-import { getUserProfile, syncUserProfile, saveProjectToCloud, loadUserProjects, deleteProjectFromCloud, findUserProfileByAccount } from './services/dataService';
+import { getUserProfile, initializeUserProfile, saveProjectToCloud, loadUserProjects, deleteProjectFromCloud, syncUserProfile } from './services/dataService';
 
 import IdeaSpark from './components/IdeaSpark';
 import CharacterStudio from './components/CharacterStudio';
@@ -54,6 +54,7 @@ const App: React.FC = () => {
 
   const [history, setHistory] = useState<BookProject[]>([]);
 
+  // 检查 API Key
   useEffect(() => {
     const checkKey = async () => {
       if (process.env.API_KEY && process.env.API_KEY !== "undefined" && process.env.API_KEY.length > 5) {
@@ -65,9 +66,7 @@ const App: React.FC = () => {
         try {
           const selected = await win.aistudio.hasSelectedApiKey();
           setHasKey(selected);
-        } catch (e) {
-          setHasKey(false);
-        }
+        } catch (e) { setHasKey(false); }
       } else {
         setHasKey(!!process.env.API_KEY); 
       }
@@ -83,20 +82,24 @@ const App: React.FC = () => {
     }
   };
 
+  /**
+   * 核心监听：用户登录状态变化
+   * 只要 Firebase Auth 状态改变，我们就执行 UID 数据同步。
+   */
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
       if (fbUser) {
         setFirebaseUid(fbUser.uid);
-        const profile = await getUserProfile(fbUser.uid);
-        if (profile) {
-          setUser({ ...profile, isLoggedIn: true });
-          const projects = await loadUserProjects(fbUser.uid);
-          setHistory(projects);
-          setCurrentView('library');
-        }
+        // 使用 fbUser.uid 直接查询文档 ID
+        const profile = await initializeUserProfile(fbUser.uid, fbUser.email?.split('@')[0] || '造梦师');
+        setUser({ ...profile, isLoggedIn: true });
+        
+        const projects = await loadUserProjects(fbUser.uid);
+        setHistory(projects);
+        setCurrentView('library');
       } else {
         setFirebaseUid(null);
-        setUser(prev => ({ ...prev, isLoggedIn: false }));
+        setUser({ isLoggedIn: false, username: '', coins: 0, isFirstRecharge: true });
         setCurrentView('login');
       }
     });
@@ -162,53 +165,8 @@ const App: React.FC = () => {
     return true;
   };
 
-  const handleLogin = async (username: string, method: string, isRegistering: boolean) => {
-    try {
-      // 1. 尝试查找已存在的账号数据 (email/username 匹配)
-      const existingProfile = await findUserProfileByAccount(username);
-      
-      const cred = await signInAnonymously(auth);
-      const currentUid = cred.user.uid;
-      setFirebaseUid(currentUid);
-      
-      if (existingProfile) {
-        // 2. 如果账号已存在，将数据同步到当前的匿名 UID 下 (或者是复用该账号)
-        // 注意：这里我们简单地将现有数据关联到当前 Uid
-        const profileData = { ...existingProfile.data, isLoggedIn: true };
-        await syncUserProfile(currentUid, profileData);
-        setUser(profileData);
-        setCurrentView('library');
-        
-        // 加载该账号的历史记录 (需注意历史记录是按 ownerId 存的)
-        // 如果是跨设备，可能需要一次性把旧 Uid 的项目 ownerId 改成新 Uid，或者历史记录查询改为查询 username
-        const projects = await loadUserProjects(existingProfile.uid);
-        // 这里如果是匿名 UID 不同，最好把 projects 也合并过来
-        setHistory(projects);
-      } else {
-        // 3. 只有当账号完全不存在时，才创建新档案并赠送奖励
-        const newUser = { 
-          username, 
-          email: username.includes('@') ? username : '',
-          coins: 80, 
-          isFirstRecharge: true, 
-          isLoggedIn: true 
-        };
-        await syncUserProfile(currentUid, newUser);
-        setUser(newUser);
-        setShowReward(true);
-        setCurrentView('library');
-        setHistory([]);
-      }
-    } catch (e: any) {
-      alert(`验证失败: ${e.message}`);
-    }
-  };
-
   const handleLogout = async () => {
     await signOut(auth);
-    setFirebaseUid(null);
-    setUser(p => ({ ...p, isLoggedIn: false, username: '', coins: 0 }));
-    setCurrentView('login');
     setIsMenuOpen(false);
   };
 
@@ -268,7 +226,7 @@ const App: React.FC = () => {
 
       <main className="flex-1 overflow-x-hidden w-full">
         <div className="max-w-7xl mx-auto px-4 py-6 md:py-10 w-full">
-          {currentView === 'login' ? <Login onLogin={handleLogin} onLogout={handleLogout} currentUser={user} lang={lang} /> : 
+          {currentView === 'login' ? <Login onLogout={handleLogout} currentUser={user} lang={lang} /> : 
            currentView === 'plaza' ? <ReadingPlaza lang={lang} onUseStyle={(style) => { setProject(p => ({ ...p, visualStyle: style, currentStep: 'idea', id: Math.random().toString(36).substr(2, 9), pages: [] })); setCurrentView('studio'); }} onUseIdea={(idea) => { setProject(p => ({ ...p, originalIdea: idea, currentStep: 'idea', id: Math.random().toString(36).substr(2, 9), pages: [] })); setCurrentView('studio'); }} /> :
            currentView === 'brand' ? <BrandStory lang={lang} isDark={isDarkBg} /> :
            currentView === 'profile' ? <MyProfile user={user} setUser={setUser} handleLogout={handleLogout} lang={lang} setLang={setLang} bgColor={bgColor} setBgColor={setBgColor} history={history} isDark={isDarkBg} /> :

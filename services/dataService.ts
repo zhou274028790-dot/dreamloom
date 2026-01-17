@@ -5,40 +5,44 @@ import { db, storage } from "./firebase";
 import { BookProject, User, StoryTemplate, VisualStyle } from "../types";
 
 /**
- * Syncs user profile to Firestore
+ * 核心：同步用户资料。强制使用 UID 作为 Firestore 文档 ID。
  */
 export const syncUserProfile = async (uid: string, userData: Partial<User>) => {
+  if (!uid) return;
   const userRef = doc(db, "users", uid);
   await setDoc(userRef, { ...userData, updatedAt: Date.now() }, { merge: true });
 };
 
 /**
- * Fetches user profile from Firestore by UID
+ * 获取用户资料。直接通过 UID（文档 ID）查询，这是最快且最准确的方式。
  */
 export const getUserProfile = async (uid: string): Promise<User | null> => {
+  if (!uid) return null;
   const userRef = doc(db, "users", uid);
   const snap = await getDoc(userRef);
   return snap.exists() ? snap.data() as User : null;
 };
 
 /**
- * 查询指定账号是否存在
+ * 初始化新用户。如果用户是第一次登录，创建以 UID 为 ID 的文档并赠送初始金豆。
  */
-export const findUserProfileByAccount = async (account: string): Promise<{ uid: string, data: User } | null> => {
-  const q = query(collection(db, "users"), where("username", "==", account));
-  const snap = await getDocs(q);
-  if (!snap.empty) {
-    return { 
-      uid: snap.docs[0].id, 
-      data: snap.docs[0].data() as User 
-    };
-  }
-  return null;
+export const initializeUserProfile = async (uid: string, username: string): Promise<User> => {
+  const existing = await getUserProfile(uid);
+  if (existing) return existing;
+
+  const newUser: User = {
+    isLoggedIn: true,
+    username: username || '新造梦师',
+    coins: 80,
+    isFirstRecharge: true
+  };
+  
+  await syncUserProfile(uid, newUser);
+  return newUser;
 };
 
 /**
- * Uploads a Base64 image to Firebase Storage with optimized user/project path
- * Structure: /users/{userId}/projects/{projectId}/{filename}
+ * 上传图片到云端。路径中包含 UID 以保证隔离。
  */
 export const uploadImageToCloud = async (uid: string, projectId: string, filename: string, base64Data: string): Promise<string> => {
   const path = `users/${uid}/projects/${projectId}/${filename}`;
@@ -49,30 +53,22 @@ export const uploadImageToCloud = async (uid: string, projectId: string, filenam
 };
 
 /**
- * Saves or updates a project in Firestore
+ * 保存项目。确保 ownerId 与当前用户 UID 一致。
  */
 export const saveProjectToCloud = async (uid: string, project: BookProject) => {
   const projectRef = doc(db, "projects", project.id);
-  // Ensure ownerId is always synced
   await setDoc(projectRef, { ...project, ownerId: uid, updatedAt: Date.now() }, { merge: true });
 };
 
 /**
- * Loads all projects for a specific user. 
- * Explicitly removed any potential limits and added defensive parsing.
+ * 加载用户的全部项目。
  */
 export const loadUserProjects = async (uid: string): Promise<BookProject[]> => {
   try {
-    // 确保没有 limit，并且通过 createdAt 排序（如果索引允许）
-    const q = query(
-      collection(db, "projects"), 
-      where("ownerId", "==", uid)
-    );
-    
+    const q = query(collection(db, "projects"), where("ownerId", "==", uid));
     const snap = await getDocs(q);
-    const projects = snap.docs.map(d => {
+    return snap.docs.map(d => {
       const data = d.data();
-      // 极度防御性映射：确保每个字段都有合理的默认值
       return {
         id: d.id,
         title: data.title || "未命名故事",
@@ -85,65 +81,41 @@ export const loadUserProjects = async (uid: string): Promise<BookProject[]> => {
         extractionCode: data.extractionCode || "",
         currentStep: data.currentStep || 'idea',
         createdAt: data.createdAt || data.updatedAt || Date.now(),
-        ...data // 展开其余数据
+        ...data
       } as BookProject;
     });
-
-    return projects;
   } catch (error) {
     console.error("加载项目列表失败:", error);
     return [];
   }
 };
 
-/**
- * Deletes a project from Firestore
- */
 export const deleteProjectFromCloud = async (projectId: string) => {
   await deleteDoc(doc(db, "projects", projectId));
 };
 
-/**
- * 核心：激活码兑换系统
- */
 export const redeemCodeFromCloud = async (uid: string, code: string): Promise<{ success: boolean, value?: number, message: string }> => {
   try {
     const q = query(collection(db, "redeem_codes"), where("code", "==", code.trim().toUpperCase()));
     const snap = await getDocs(q);
     
-    if (snap.empty) {
-      return { success: false, message: "激活码不存在，请检查输入" };
-    }
+    if (snap.empty) return { success: false, message: "激活码不存在" };
     
     const codeDoc = snap.docs[0];
     const codeData = codeDoc.data();
-    
-    if (codeData.is_used) {
-      return { success: false, message: "该激活码已被使用过" };
-    }
+    if (codeData.is_used) return { success: false, message: "激活码已被使用" };
     
     const batch = writeBatch(db);
+    batch.update(codeDoc.ref, { is_used: true, used_by: uid, used_at: Date.now() });
     
-    // 1. 标记码为已使用
-    batch.update(codeDoc.ref, { 
-      is_used: true, 
-      used_by: uid, 
-      used_at: Date.now() 
-    });
-    
-    // 2. 获取用户并增加金币
     const userRef = doc(db, "users", uid);
     const userSnap = await getDoc(userRef);
-    if (!userSnap.exists()) throw new Error("用户数据异常");
-    
-    const currentCoins = userSnap.data().coins || 0;
+    const currentCoins = userSnap.exists() ? (userSnap.data().coins || 0) : 0;
     batch.update(userRef, { coins: currentCoins + codeData.value });
     
     await batch.commit();
-    
     return { success: true, value: codeData.value, message: "兑换成功！" };
   } catch (e) {
-    console.error(e);
-    return { success: false, message: "核销失败，请稍后再试" };
+    return { success: false, message: "操作失败" };
   }
 };
