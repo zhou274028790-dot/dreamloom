@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { BookProject } from '../types';
+import { BookProject, StoryPage } from '../types';
 
 interface Props {
   history: BookProject[];
@@ -57,19 +57,19 @@ const BookLibrary: React.FC<Props> = ({ history, onSelect, onDelete, onNewProjec
           .map((book) => {
             try {
               // 极度防御性的封面图提取逻辑
-              const pages = Array.isArray(book.pages) ? book.pages : [];
-              const firstPage = pages[0] || {};
+              const pages = (Array.isArray(book.pages) ? book.pages : []) as StoryPage[];
+              const firstPage = pages.length > 0 ? pages[0] : null;
               
               /**
-               * 核心修复：多路径尝试获取封面
+               * 核心修复：使用可选链访问属性，防止 TS 类型报错
                * 1. 优先获取第一页的 imageUrl
-               * 2. 其次尝试第一页的 image (兼容某些 API 返回格式)
-               * 3. 再次尝试项目根级的 coverUrl 或 cover_url (兼容归档数据)
+               * 2. 其次尝试第一页的 image 
+               * 3. 再次尝试项目根级的 coverUrl 或 cover_url
                */
-              const coverImage = firstPage.imageUrl || 
-                                 (firstPage as any).image || 
-                                 (book as any).coverUrl || 
-                                 (book as any).cover_url;
+              const coverImage = firstPage?.imageUrl || 
+                                 firstPage?.image || 
+                                 book.coverUrl || 
+                                 book.cover_url;
 
               const bookTitle = book.title || "未命名故事";
               const visualStyleStr = typeof book.visualStyle === 'string' ? book.visualStyle.split(' ')[0] : "艺术";
@@ -91,7 +91,7 @@ const BookLibrary: React.FC<Props> = ({ history, onSelect, onDelete, onNewProjec
                         alt={bookTitle} 
                         loading="lazy"
                         onError={(e) => {
-                          // 如果图片因 CORS 或路径失效加载失败，显示艺术占位图
+                          // 如果图片失效，显示艺术占位图
                           (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1544947950-fa07a98d237f?auto=format&fit=crop&w=400&q=80";
                         }}
                       />
@@ -113,7 +113,6 @@ const BookLibrary: React.FC<Props> = ({ history, onSelect, onDelete, onNewProjec
                       <i className="fas fa-trash-alt text-sm"></i>
                     </button>
 
-                    {/* 渐变遮罩增强层 */}
                     <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
                   </div>
 

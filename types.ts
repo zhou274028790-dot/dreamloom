@@ -27,6 +27,7 @@ export interface StoryPage {
   text: string;
   visualPrompt: string;
   imageUrl?: string;
+  image?: string; // 新增：支持多种图片字段格式
   isGenerating?: boolean;
 }
 
@@ -43,10 +44,13 @@ export interface BookProject {
   styleReferenceImage?: string; 
   styleDescription?: string;    
   extractionCode?: string;
-  isPaid?: boolean; // 新增：是否已支付/解锁
+  coverUrl?: string;    // 新增：支持根级封面
+  cover_url?: string;   // 新增：支持数据库常见命名
+  isPaid?: boolean;
   currentStep: 'idea' | 'character' | 'director' | 'press';
   createdAt?: number;
   author?: string;
+  ownerId?: string; // 添加 ownerId 以匹配 Firebase 数据
 }
 
 export interface User {
