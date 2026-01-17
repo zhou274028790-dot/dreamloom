@@ -56,59 +56,73 @@ const BookLibrary: React.FC<Props> = ({ history, onSelect, onDelete, onNewProjec
           .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))
           .map((book) => {
             try {
-              // 进一步的防御性解析
+              // 极度防御性的封面图提取逻辑
               const pages = Array.isArray(book.pages) ? book.pages : [];
-              const coverImageUrl = pages.length > 0 ? pages[0]?.imageUrl : null;
+              const firstPage = pages[0] || {};
+              
+              /**
+               * 核心修复：多路径尝试获取封面
+               * 1. 优先获取第一页的 imageUrl
+               * 2. 其次尝试第一页的 image (兼容某些 API 返回格式)
+               * 3. 再次尝试项目根级的 coverUrl 或 cover_url (兼容归档数据)
+               */
+              const coverImage = firstPage.imageUrl || 
+                                 (firstPage as any).image || 
+                                 (book as any).coverUrl || 
+                                 (book as any).cover_url;
+
               const bookTitle = book.title || "未命名故事";
               const visualStyleStr = typeof book.visualStyle === 'string' ? book.visualStyle.split(' ')[0] : "艺术";
 
               return (
                 <div 
                   key={book.id} 
-                  className="card-dynamic rounded-[3rem] overflow-hidden group hover:-translate-y-2 flex flex-col transition-all duration-300"
+                  className="card-dynamic rounded-[3rem] overflow-hidden group hover:-translate-y-2 flex flex-col transition-all duration-300 shadow-xl"
                 >
                   {/* 封面区域：强制 1:1 比例 */}
                   <div 
-                    className="relative aspect-square bg-[#F5F1E9] cursor-pointer overflow-hidden"
+                    className="relative aspect-square bg-[var(--text-main)]/5 cursor-pointer overflow-hidden"
                     onClick={() => onSelect({ ...book, currentStep: 'press' })}
                   >
-                    {coverImageUrl ? (
+                    {coverImage ? (
                       <img 
-                        src={coverImageUrl} 
-                        className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" 
+                        src={coverImage} 
+                        className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110" 
                         alt={bookTitle} 
+                        loading="lazy"
                         onError={(e) => {
-                          // 如果图片加载失败，显示占位符
+                          // 如果图片因 CORS 或路径失效加载失败，显示艺术占位图
                           (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1544947950-fa07a98d237f?auto=format&fit=crop&w=400&q=80";
                         }}
                       />
                     ) : (
-                      <div className="w-full h-full flex flex-col items-center justify-center p-8 bg-gradient-to-br from-[#F5F1E9] to-white/20">
-                        <div className="w-20 h-20 bg-white/80 rounded-full flex items-center justify-center shadow-sm mb-4">
+                      <div className="w-full h-full flex flex-col items-center justify-center p-8 bg-gradient-to-br from-[var(--text-main)]/5 to-transparent">
+                        <div className="w-20 h-20 bg-[var(--card-bg)] rounded-full flex items-center justify-center shadow-sm mb-4">
                             <i className="fas fa-star text-[#EA6F23] text-3xl animate-pulse"></i>
                         </div>
-                        <p className="text-[#EA6F23] font-bold text-sm tracking-widest opacity-40 text-center px-4">正在编织梦境...</p>
+                        <p className="text-[#EA6F23] font-bold text-sm tracking-widest opacity-40 text-center px-4 uppercase">Dreaming...</p>
                       </div>
                     )}
                     
                     {/* 删除按钮 */}
                     <button 
                       onClick={(e) => { e.stopPropagation(); if(confirm("确定要删除这本绘本吗？")) onDelete(book.id); }}
-                      className="absolute top-5 right-5 w-10 h-10 bg-white/20 backdrop-blur-md text-white/60 rounded-full flex items-center justify-center shadow-xl border border-white/10 z-20 hover:bg-red-500 hover:text-white hover:scale-110 transition-all active:scale-90"
+                      className="absolute top-5 right-5 w-10 h-10 bg-[var(--card-bg)]/60 backdrop-blur-md text-[var(--text-main)]/60 rounded-full flex items-center justify-center shadow-xl border border-[var(--border-color)] z-20 hover:bg-red-500 hover:text-white hover:scale-110 transition-all active:scale-90"
                       title="删除作品"
                     >
                       <i className="fas fa-trash-alt text-sm"></i>
                     </button>
 
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                    {/* 渐变遮罩增强层 */}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
                   </div>
 
                   {/* 信息与操作区 */}
-                  <div className="p-8 space-y-6 bg-[var(--card-bg)]">
+                  <div className="p-8 space-y-6 bg-[var(--card-bg)] border-t border-[var(--border-color)]">
                     <div className="space-y-1">
                       <h3 className="text-2xl font-bold font-header line-clamp-1" style={{ color: 'var(--text-main)' }}>{bookTitle}</h3>
-                      <div className="flex items-center gap-2 text-xs font-bold text-[#EA6F23] uppercase tracking-widest opacity-60">
-                        <i className="fas fa-magic text-[10px]"></i>
+                      <div className="flex items-center gap-2 text-[10px] font-black text-[#EA6F23] uppercase tracking-widest opacity-60">
+                        <i className="fas fa-magic text-[9px]"></i>
                         {visualStyleStr} • {pages.length} 页
                       </div>
                     </div>
@@ -119,7 +133,7 @@ const BookLibrary: React.FC<Props> = ({ history, onSelect, onDelete, onNewProjec
                         className="py-4 bg-[var(--text-main)]/5 text-[var(--text-sub)] rounded-2xl hover:bg-[var(--text-main)]/10 transition-all flex flex-col items-center justify-center gap-1.5 border border-[var(--border-color)]"
                       >
                         <i className="fas fa-pen text-xs"></i>
-                        <span className="text-[10px] font-black tracking-widest uppercase">编辑</span>
+                        <span className="text-[9px] font-black tracking-widest uppercase">编辑</span>
                       </button>
 
                       <button 
@@ -127,7 +141,7 @@ const BookLibrary: React.FC<Props> = ({ history, onSelect, onDelete, onNewProjec
                         className="py-4 bg-[#EA6F23] text-white rounded-2xl shadow-lg hover:bg-[#EA6F23]/90 hover:-translate-y-0.5 transition-all flex flex-col items-center justify-center gap-1.5"
                       >
                         <i className="fas fa-eye text-xs"></i>
-                        <span className="text-[10px] font-black tracking-widest uppercase">阅读</span>
+                        <span className="text-[9px] font-black tracking-widest uppercase">阅读</span>
                       </button>
 
                       <button 
@@ -135,7 +149,7 @@ const BookLibrary: React.FC<Props> = ({ history, onSelect, onDelete, onNewProjec
                         className="py-4 bg-yellow-400 text-yellow-900 rounded-2xl shadow-xl border-2 border-yellow-200 hover:bg-yellow-300 hover:-translate-y-0.5 transition-all flex flex-col items-center justify-center gap-1.5"
                       >
                         <i className="fas fa-gift text-xs"></i>
-                        <span className="text-[10px] font-black tracking-widest uppercase">订购</span>
+                        <span className="text-[9px] font-black tracking-widest uppercase">订购</span>
                       </button>
                     </div>
                   </div>
@@ -143,7 +157,7 @@ const BookLibrary: React.FC<Props> = ({ history, onSelect, onDelete, onNewProjec
               );
             } catch (err) {
               console.error("渲染单本绘本出错:", err, book);
-              return null; // 即使某一本损坏，也不影响整个列表
+              return null;
             }
         })}
       </div>
